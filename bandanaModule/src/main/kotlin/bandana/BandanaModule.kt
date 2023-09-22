@@ -10,8 +10,8 @@ import org.apache.jena.fuseki.access.DatasetGraphAccessControl
 import org.apache.jena.fuseki.access.AccessCtl_SPARQL_QueryDataset
 import org.apache.jena.fuseki.access.AccessCtl_GSP_R
 import org.apache.jena.fuseki.access.AccessCtl_Deny
-import org.apache.jena.fuseki.servlets.HttpAction
-import org.apache.jena.fuseki.servlets.ActionProcessor
+import org.apache.jena.fuseki.server.Endpoint;
+import org.apache.jena.fuseki.servlets.*
 import org.apache.jena.fuseki.main.FusekiLib
 import org.apache.jena.graph.Node
 import org.apache.jena.graph.NodeFactory
@@ -33,23 +33,23 @@ import javax.servlet.ServletRequest
 import javax.servlet.ServletResponse
 import javax.servlet.FilterChain
 import bandana.AssemblerRoleRegistry
+
 import kotlin.text.StringBuilder
 import kotlin.Pair
 import java.io.StringWriter
+import java.util.function.Function;
 
 
 class BandanaModule : FusekiAutoModule {
 
     init {
-        println("INSIDE BANDANA CONSTRUCTOR! PLEASE SEE THIS")
     }
 
     override fun start() {
-        println("Bandana module starting!")
+        println("The fuseki-plugin Bandana has started successfully")
     }
 
     override fun stop() {
-        println("Bandana module stopping!")
     }
     override fun configured(builder: FusekiServer.Builder, dapRegistry: DataAccessPointRegistry, configModel: Model) {
         dapRegistry.accessPoints().forEach{ap ->
@@ -69,24 +69,56 @@ class BandanaModule : FusekiAutoModule {
             val service = ap.getDataService()
             (service.getDataset() as? DatasetGraphAccessControl)?.let{
                 (it.getAuthService() as? RoleRegistry)?.let{
-
                     service.forEachEndpoint {
-                        FusekiLib.modifyForAccessCtl(it, ::getRoles)
+                        modifyEndpointForAccessControl(it, ::getRoles)
                     }
                 }
             }
         }
-        println("Bandana module started!")
     }
 
 
     override fun name() = "Bandana"
 
+    fun modifyEndpointForAccessControl(endpoint: Endpoint, determineUser: Function<HttpAction, String>) {
+        val actionService = when (endpoint.getOperation()) {
+            Operation.Query -> AccessCtl_SPARQL_QueryDataset(determineUser)
+            Operation.GSP_R -> AccessCtl_GSP_R(determineUser)
+            Operation.GSP_RW -> BandanaAccessCtl_RequireRole(GSP_RW(), "update", determineUser);
+            Operation.Update -> BandanaAccessCtl_RequireRole(SPARQL_Update(), "update", determineUser);
+            Operation.Upload -> BandanaAccessCtl_RequireRole(UploadRDF(), "update", determineUser);
+            else -> throw Exception("Access control not implemented for " + endpoint.getOperation())
+        }
+        endpoint.setProcessor(actionService);
+    }
 
 
     fun getRoles(action: HttpAction): String {
-        println("GETROLES")
         return action.getRequest().getAttribute("roles") as String
+    }
+
+    class BandanaAccessCtl_RequireRole(other: ActionService, requiredRole: String, determineUser: Function<HttpAction, String>) : ActionService() {
+        private val other = other;
+        private val determineUser = determineUser;
+        private val requiredRole = requiredRole;
+
+        override fun validate(action: HttpAction) {
+            val roles = determineUser.apply(action);
+            if (roles.split('\n').contains(requiredRole)) {
+                other.validate(action)
+            } else {
+                ServletOps.errorForbidden();
+            }
+        }
+
+        override fun execute(action: HttpAction) {
+            other.execute(action);
+        }
+
+        override fun execPost(action: HttpAction) {
+            validate(action);
+            other.execPost(action)
+        }
     }
 
     class BandanaFilter(registry: RoleRegistry) : HttpFilter() {
@@ -115,11 +147,8 @@ class BandanaModule : FusekiAutoModule {
             }
 
             req.setAttribute("roles", roleClaims.joinToString("\n"))
-
             ch.doFilter(req, res)
-
         }
-
     };
 
 }
