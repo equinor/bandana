@@ -34,6 +34,7 @@ class AssemblerRoleRegistry() : AssemblerBase() {
         @JvmStatic val pAccess = ResourceFactory.createProperty(ns + "access") ?: throw NullPointerException()
         @JvmStatic val tScopeAuthorization = ResourceFactory.createResource(ns + "ScopeAuthorization") ?: throw NullPointerException()
         @JvmStatic val tNoAuthorization = ResourceFactory.createResource(ns + "NoAuthorization") ?: throw NullPointerException()
+        @JvmStatic val tWriteAuthorization = ResourceFactory.createResource(ns + "WriteAuthorization") ?: throw NullPointerException()
 
         init {
             MappingRegistry.addPrefixMapping("bandana", ns)
@@ -46,26 +47,27 @@ class AssemblerRoleRegistry() : AssemblerBase() {
         if (!sIter.hasNext()) 
             throw AssemblerException(root, "No role access entries")
         sIter.forEachRemaining {
-            println(it.getObject() as? Resource)
-
             val o = it.getObject() as? Resource
             if(o is Resource){
 
                 val role = it.getProperty(pRole)
                            ?.let{it.getObject() as? Literal}
                            ?: throw AssemblerException(root,"Found bandana:entry but bandana:role was either missing or not a literal: " + it)
-                println(role)
+
                 val access = it.getProperty(pAccess)
                 ?.let{it.getObject() as? Resource}
                 ?: throw AssemblerException(root,"Found bandana:entry but bandana:access was either missing or not a resource: " +it)
                 
-                println(access)
-                val sCtx = when(access) {
-                        tScopeAuthorization -> ScopedSecurity()
-                        tNoAuthorization -> NoSecurity()
-                        else -> throw AssemblerException(root,"Found bandana:entry but bandana:access was either missing or not a resource: " +it)
-                    }
-                registry.addRole(role.getString(), sCtx)
+                if (access == tWriteAuthorization) {
+                    registry.addWriteRole(role.getString())
+                } else {
+                    val sCtx = when(access) {
+                            tScopeAuthorization -> ScopedSecurity()
+                            tNoAuthorization -> NoSecurity()
+                            else -> throw AssemblerException(root,"Found bandana:entry but bandana:access was either missing or not a resource: " +it)
+                        }
+                    registry.addReadRole(role.getString(), sCtx)
+                }
             }else throw AssemblerException(root, "Found bandana:entry with non-resource")
         }
         root.listProperties(pAlias).forEachRemaining {

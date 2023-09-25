@@ -1,0 +1,21 @@
+# Extend the Fuseki Docker image
+FROM rawfuseki:latest
+
+# Setup directories for ttldata and config
+ARG CONFIGS=${FUSEKI_DIR}/config
+ARG TTL_DATA=${FUSEKI_DIR}/ttl_data
+RUN \
+    mkdir -p $CONFIGS && \
+    mkdir -p $TTL_DATA && \
+    chown -R fuseki ${FUSEKI_DIR}
+COPY ./config ${CONFIGS}
+
+# Create the /fuseki/ext directory if it doesn't exist
+RUN mkdir -p /fuseki/ext
+
+# Copy the Bandana jar file to the /fuseki/ext directory
+COPY ./bandana.jar /fuseki/ext/bandana.jar
+
+ADD ./bandana-entrypoint.sh .
+
+ENTRYPOINT ["./bandana-entrypoint.sh" ]

@@ -41,34 +41,12 @@ class JwtValidator private constructor() {
 
     }
     
-
-        // Will select RSA keys marked for signature use only
-/*JWKSelector selector = new JWKSelector(
-    new JWKMatcher.Builder()
-        .keyType(KeyType.RSA)
-        .keyUse(KeyUse.SIGNATURE)
-        .build());
-
-// Some security context that may be required by the JOSE
-// signature checking and JWT processing framework, may be
-// null if not required
-SecurityContext ctx = new SimpleSecurityContext();
-
-// Create a new JWK source with rate limiting and refresh ahead
-// caching, using sensible default settings
-    .build();
-*/
-    // Now you can integrate the JWKSource into your JWT processor
-    
-
     fun validate(token: String): JWTClaimsSet {
         // Process the token
         val ctx:SecurityContext? = null; // optional context parameter, not required here
         val claimsSet: JWTClaimsSet;
         claimsSet = jwtProcessor.process(token, ctx);
-        println("CLAIMS: " + claimsSet);
         val roles = claimsSet.getStringArrayClaim("roles")
-        println("Roles " + roles.joinToString(" "));
         return claimsSet;
     }
 

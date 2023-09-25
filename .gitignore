@@ -1,4 +1,7 @@
 build
 .gradle
 bin
+tdb2
+bandanaModule/src/test/resources/test.token
+*.jar
 

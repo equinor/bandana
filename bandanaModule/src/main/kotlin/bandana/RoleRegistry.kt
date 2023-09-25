@@ -22,9 +22,11 @@ import org.apache.jena.vocabulary.RDF
 import org.apache.jena.vocabulary.RDFS
 import org.apache.jena.tdb2.DatabaseMgr
 import org.apache.jena.tdb2.sys.SystemTDB
+import org.apache.jena.fuseki.servlets.ServletOps
 import java.util.function.Function
 import java.util.function.Predicate
 import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
 
 class RoleRegistry() :  AuthorizationService {
 	companion object {
@@ -41,7 +43,8 @@ class RoleRegistry() :  AuthorizationService {
 		@JvmStatic val pKey = NodeFactory.createURI(ns + "key") ?: throw NullPointerException()
 		@JvmStatic val pAccess = NodeFactory.createURI(ns + "access") ?: throw NullPointerException()
 	}
-	private val _roles = ConcurrentHashMap<String, ScopeContextFactory>()
+	private val _readRoles = ConcurrentHashMap<String, ScopeContextFactory>()
+	private val _writeRoles = HashSet<String>()
 	private val _aliases = ConcurrentHashMap<String, Array<Node>>()
 
     override fun get(access: String?): SecurityContext {
@@ -49,28 +52,34 @@ class RoleRegistry() :  AuthorizationService {
 		if(access == null) return SecurityContextAllowNone()
 		val claims = access.split('\n')
 
-		val roles = ArrayList<String>()
+		val readRoles = ArrayList<String>()
 		val aliases = ArrayList<String>()
 		val unknown = ArrayList<String>()
 		for(claim in claims){
 			when{
-				isRole(claim) -> roles.add(claim)
+				isReadRole(claim) -> readRoles.add(claim)
 				isAlias(claim) -> aliases.add(claim)
 				else -> unknown.add(claim)
 			}
 		}
-		if(roles.size > 1)
-			println("Multiple configured roles. Picking ${roles[0]} at random.")
-		val factory = _roles.get(roles[0]) ?: throw NullPointerException("key ${roles[0]} not a registered ScopeContextFactory")
-		val scopes = Array(aliases.size){i -> getAlias(aliases[i])}
-		println("SCOPES: ${scopes.joinToString(" ", "(", ")")}")
-		return factory.apply(scopes)
 
+		if (readRoles.size == 0) ServletOps.errorForbidden("No read roles")
+		if (readRoles.size > 1) println("More than 1 read role, picking ${readRoles[0]} at random")
+
+		val factory = _readRoles.get(readRoles[0]) ?: throw NullPointerException("key ${readRoles[0]} not a registered ScopeContextFactory")
+		val scopes = Array(aliases.size){i -> getAlias(aliases[i])}
+
+		return factory.apply(scopes)
 	}
 
-	fun addRole(role:String, factory:ScopeContextFactory) = _roles.put(role, factory)
+	fun addWriteRole(role:String) = _writeRoles.add(role)
+	fun addReadRole(role:String, factory:ScopeContextFactory) = _readRoles.put(role, factory)
 
-	fun isRole(role:String):Boolean = _roles.containsKey(role)
+	fun isReadRole(readRole:String):Boolean = _readRoles.containsKey(readRole)
+
+
+	fun getWriteRoles(): Set<String> = Collections.unmodifiableSet(_writeRoles);
+
 
 	fun addAlias(role:String, scopes:Array<Node>) = _aliases.put(role, scopes)
 
