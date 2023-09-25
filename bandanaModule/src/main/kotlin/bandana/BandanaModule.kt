@@ -115,14 +115,12 @@ class BandanaModule : FusekiAutoModule {
             other.execute(action);
         }
 
-        override fun execPost(action: HttpAction) {
-            validate(action);
-            other.execPost(action)
+        override fun execAny(method: String, action: HttpAction) {
+            executeLifecycle(action)
         }
     }
 
     class BandanaFilter(registry: RoleRegistry) : HttpFilter() {
-
         private val _BEARER = "Bearer "
         private val reg = registry
         
