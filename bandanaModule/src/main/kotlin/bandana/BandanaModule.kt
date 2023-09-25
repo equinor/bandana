@@ -67,10 +67,11 @@ class BandanaModule : FusekiAutoModule {
         val dapRegistry = DataAccessPointRegistry.get(server.servletContext)
         dapRegistry.accessPoints().forEach{ap ->
             val service = ap.getDataService()
-            (service.getDataset() as? DatasetGraphAccessControl)?.let{
-                (it.getAuthService() as? RoleRegistry)?.let{
+            (service.getDataset() as? DatasetGraphAccessControl)?.let{ dataset ->
+                (dataset.getAuthService() as? RoleRegistry)?.let{ registry ->
+                    val writeRoles = registry.getWriteRoles();
                     service.forEachEndpoint {
-                        modifyEndpointForAccessControl(it, ::getRoles)
+                        modifyEndpointForAccessControl(it, writeRoles, ::getRoles)
                     }
                 }
             }
@@ -80,13 +81,13 @@ class BandanaModule : FusekiAutoModule {
 
     override fun name() = "Bandana"
 
-    fun modifyEndpointForAccessControl(endpoint: Endpoint, determineUser: Function<HttpAction, String>) {
+    fun modifyEndpointForAccessControl(endpoint: Endpoint, writeRoles: Set<String>, determineUser: Function<HttpAction, String>) {
         val actionService = when (endpoint.getOperation()) {
             Operation.Query -> AccessCtl_SPARQL_QueryDataset(determineUser)
             Operation.GSP_R -> AccessCtl_GSP_R(determineUser)
-            Operation.GSP_RW -> BandanaAccessCtl_RequireRole(GSP_RW(), "update", determineUser);
-            Operation.Update -> BandanaAccessCtl_RequireRole(SPARQL_Update(), "update", determineUser);
-            Operation.Upload -> BandanaAccessCtl_RequireRole(UploadRDF(), "update", determineUser);
+            Operation.GSP_RW -> BandanaAccessCtl_RequireRole(GSP_RW(), writeRoles, determineUser);
+            Operation.Update -> BandanaAccessCtl_RequireRole(SPARQL_Update(), writeRoles, determineUser);
+            Operation.Upload -> BandanaAccessCtl_RequireRole(UploadRDF(), writeRoles, determineUser);
             else -> throw Exception("Access control not implemented for " + endpoint.getOperation())
         }
         endpoint.setProcessor(actionService);
@@ -97,17 +98,18 @@ class BandanaModule : FusekiAutoModule {
         return action.getRequest().getAttribute("roles") as String
     }
 
-    class BandanaAccessCtl_RequireRole(other: ActionService, requiredRole: String, determineUser: Function<HttpAction, String>) : ActionService() {
+    class BandanaAccessCtl_RequireRole(other: ActionService, allowedRoles: Set<String>, determineUser: Function<HttpAction, String>) : ActionService() {
         private val other = other;
         private val determineUser = determineUser;
-        private val requiredRole = requiredRole;
+        private val allowedRoles = allowedRoles;
 
         override fun validate(action: HttpAction) {
             val roles = determineUser.apply(action);
-            if (roles.split('\n').contains(requiredRole)) {
-                other.validate(action)
-            } else {
+            val denied = roles.split('\n').intersect(allowedRoles).isEmpty();
+            if (denied) {
                 ServletOps.errorForbidden();
+            } else {
+                other.validate(action)
             }
         }
 
@@ -134,15 +136,6 @@ class BandanaModule : FusekiAutoModule {
             val token = autheader.substring(_BEARER.length)
             val claims = validator.validate(token)
             val roleClaims = claims.getStringArrayClaim("roles")
-
-            var anyRoles = false
-            for(claim in roleClaims){
-                if(reg.isRole(claim)) anyRoles = true
-            }
-            if(!anyRoles){
-                res.sendError(HttpSC.FORBIDDEN_403);
-                return
-            }
 
             req.setAttribute("roles", roleClaims.joinToString("\n"))
             ch.doFilter(req, res)

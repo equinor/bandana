@@ -54,6 +54,7 @@
 
 <#roleRegistry> rdf:type bandana:RoleRegistry ;
     bandana:entry [ bandana:role "query"; bandana:access bandana:ScopeAuthorization ] ;
+    bandana:entry [ bandana:role "write"; bandana:access bandana:WriteAuthorization ] ;
 
     bandana:alias ("role.example1" <https://example.com/someScope>) ;
     .
