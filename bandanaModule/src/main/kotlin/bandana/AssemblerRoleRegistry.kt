@@ -1,6 +1,6 @@
 package bandana
 
-import java.util.function.Function
+import java.util.function.BiFunction
 import org.apache.jena.assembler.Assembler
 import org.apache.jena.assembler.Mode
 import org.apache.jena.assembler.assemblers.AssemblerBase
@@ -97,14 +97,14 @@ class AssemblerRoleRegistry() : AssemblerBase() {
     }
 }
 
-typealias ScopeContextFactory = Function<ScopeAccess, SecurityContext>
+typealias ScopeContextFactory = BiFunction<ScopeAccess,DatasetGraph, SecurityContext>
 typealias ScopeAccess = Array<Array<Node>>
 
 class ScopedSecurity() : ScopeContextFactory  {
 
-    override fun apply(scopes: ScopeAccess): SecurityContext = ScopedSecurityContext(scopes)
+    override fun apply(scopes: ScopeAccess, dsg: DatasetGraph): SecurityContext = ScopedSecurityContext(scopes, dsg)
 }
 class NoSecurity() : ScopeContextFactory {
 
-    override fun apply(scopes: ScopeAccess): SecurityContext = SecurityContextAllowAll()
+    override fun apply(scopes: ScopeAccess, dsg: DatasetGraph): SecurityContext = SecurityContextAllowAll()
 }

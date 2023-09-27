@@ -54,9 +54,10 @@ class BandanaModule : FusekiAutoModule {
     override fun configured(builder: FusekiServer.Builder, dapRegistry: DataAccessPointRegistry, configModel: Model) {
         dapRegistry.accessPoints().forEach{ap ->
             val service = ap.getDataService()
-            (service.getDataset() as? DatasetGraphAccessControl)?.let{
-                (it.getAuthService() as? RoleRegistry)?.let{
-                    builder.addFilter("${ap.name}/*", BandanaFilter(it))
+            (service.getDataset() as? DatasetGraphAccessControl)?.let{ds ->
+                (ds.getAuthService() as? RoleRegistry)?.let{rr ->
+                    rr.setDataset(ds)
+                    builder.addFilter("${ap.name}/*", BandanaFilter(rr))
                     builder.auth(AuthScheme.BEARER)
                 }
             }

@@ -9,17 +9,22 @@ import org.apache.jena.fuseki.main.sys.FusekiModules
 import org.apache.jena.fuseki.main.FusekiServer
 import org.apache.jena.http.HttpEnv;
 import org.apache.jena.rdfconnection.RDFConnection
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.TestInstance
 import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.URI
 import java.io.File
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BandanaTest {
-    // @Test fun testScopeAccess() {
-        
-    // }
-    @Test fun fusekiLoadConfigTest() {
+
+    var server : FusekiServer? = null
+    fun server() = server?:throw NullPointerException()
+
+    @BeforeAll fun init(){
         JenaSystem.init();
         FusekiLogging.setLogging();
     
@@ -36,7 +41,7 @@ class BandanaTest {
         var fusekiModules = FusekiModules.create(module);
         // Create server.
         println("creating server")
-        var server =
+        server =
             FusekiServer.create()
                 .port(0)
                 .fusekiModules(fusekiModules)
@@ -45,9 +50,8 @@ class BandanaTest {
                 .build()
                 .start();
         println("test server started")
-        var port = server.getPort()
 
-        // Add some data to the database
+                // Add some data to the database
         val insert = 
 """
 BASE <https://rdf.equinor.com/test/>
@@ -77,19 +81,30 @@ INSERT DATA {
     }
 }
 """
-        val plainUrl = server.datasetURL("/plain/update");
-        val conn = RDFConnection.connect(plainUrl)
-        println("inserting data:\n$insert")
-        conn.use{
+        val plainUrl = server().datasetURL("/plain/update");
+        RDFConnection.connect(plainUrl).use{
+            println("inserting data:\n$insert")
             try{
-                conn.update(insert);
+                it.update(insert);
 
             }catch(e:Exception){
                 println("EXCEPTION: $e")
             }
         }
-        conn.close()
         println("inserted data")
+    }
+
+    
+    // @Test fun testScopeAccess() {
+    //     testQueryWithToken("CONSTRUCT {GRAPH ?g {?s ?p ?o} } WHERE { GRAPH ?g {?s ?p ?o}}")
+    // }
+
+    @Test fun testSelectFrom() {
+        testQueryWithToken("CONSTRUCT {?s ?p ?o} FROM <https://host/g3> WHERE {?s ?p ?o} ")
+    }
+    private fun testQueryWithToken(query:String) {
+
+        var port = server().getPort()
 
 
         // Client HTTP request: "PATCH /extra"
@@ -99,7 +114,7 @@ INSERT DATA {
         println("got token")
         var request = HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:"+port+"/secured/sparql"))
-                .method("POST", BodyPublishers.ofString("CONSTRUCT {GRAPH ?g {?s ?p ?o} } WHERE { GRAPH ?g {?s ?p ?o}}"))
+                .method("POST", BodyPublishers.ofString(query))
                 .header("Authorization", "Bearer $token")
                 .header("Content-Type", "application/sparql-query")
                 .header("Accept", "application/trig")
@@ -108,16 +123,16 @@ INSERT DATA {
         val res = HttpEnv.getDftHttpClient().send(request, BodyHandlers.ofString())
         println("RES: ${res.body().toString()}");
 
-        // cleanup
-        val checkurl = server.datasetURL("/plain/update")
-        val checkConn = RDFConnection.connect(checkurl)
-        checkConn.use{
-            checkConn.update("DELETE WHERE {GRAPH ?g {?s ?p ?o}}")
-            
+
+    }
+
+    @AfterAll fun finish(){
+        // cleanup, delete everything
+        val checkurl = server().datasetURL("/plain/update")
+        RDFConnection.connect(checkurl).use{
+            it.update("DELETE WHERE {GRAPH ?g {?s ?p ?o}}")
         }
-        checkConn.close()
-        
-        server.stop();
+        server().stop();
     }
 }
 
