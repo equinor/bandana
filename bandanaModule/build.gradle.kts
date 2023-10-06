@@ -42,7 +42,7 @@ java {
 
 tasks.test {
     useJUnitPlatform()
-
+    outputs.upToDateWhen {false}
     testLogging {
         showStandardStreams = true
     }

@@ -13,13 +13,16 @@
 [] ja:loadClass "bandana.AssemblerRoleRegistry" .
 
 [] rdf:type fuseki:Server ;
-   fuseki:services (
-     :ds
-   ) .
+    #bandana:authentication <#filter> ;
+    fuseki:services (
+        :ds
+    ) .
 
 :ds rdf:type fuseki:Service ;
     fuseki:name "ds" ;
+    bandana:authentication <#filter> ;
     fuseki:endpoint [
+    #bandana:authentication <#filter> ;
         fuseki:operation fuseki:query ;
         fuseki:name "sparql"
     ];
@@ -45,6 +48,12 @@
     ] ;
     fuseki:dataset <#access_dataset> ;
     .
+
+<#filter> rdf:type bandana:JWTBearerFilter ;
+    bandana:issuer "ISSUER HERE";
+    bandana:audience "ISSUER HERE";
+    bandana:jwkSetURL "JWKSetUrl HERE";
+    bandana:requiredClaim "roles" .
 
 
 <#access_dataset>  rdf:type access:AccessControlledDataset ;

@@ -1,146 +1,162 @@
-package bandana;
+package bandana
 
-import org.apache.jena.fuseki.main.sys.FusekiModule
-import org.apache.jena.fuseki.main.sys.FusekiAutoModule
-import org.apache.jena.fuseki.main.FusekiServer
-import org.apache.jena.fuseki.server.DataAccessPoint
-import org.apache.jena.fuseki.server.Operation
-import org.apache.jena.fuseki.server.DataAccessPointRegistry
-import org.apache.jena.fuseki.access.DatasetGraphAccessControl
-import org.apache.jena.fuseki.access.AccessCtl_SPARQL_QueryDataset
+import bandana.assembler.*
+import java.util.function.Function
 import org.apache.jena.fuseki.access.AccessCtl_GSP_R
-import org.apache.jena.fuseki.access.AccessCtl_Deny
-import org.apache.jena.fuseki.server.Endpoint;
+import org.apache.jena.fuseki.access.AccessCtl_SPARQL_QueryDataset
+import org.apache.jena.fuseki.access.DatasetGraphAccessControl
+import org.apache.jena.fuseki.main.FusekiServer
+import org.apache.jena.fuseki.main.sys.FusekiAutoModule
+import org.apache.jena.fuseki.server.DataAccessPointRegistry
+import org.apache.jena.fuseki.server.Endpoint
+import org.apache.jena.fuseki.server.Operation
 import org.apache.jena.fuseki.servlets.*
-import org.apache.jena.fuseki.main.FusekiLib
-import org.apache.jena.graph.Node
-import org.apache.jena.graph.NodeFactory
 import org.apache.jena.rdf.model.Model
-import org.apache.jena.query.Dataset
-import org.apache.jena.atlas.web.AuthScheme
-import org.apache.jena.vocabulary.RDF
-import org.apache.jena.vocabulary.RDFS
-import org.apache.jena.sparql.graph.GraphFactory
-import org.apache.jena.riot.RDFDataMgr
-import org.apache.jena.riot.RDFFormat
-import org.apache.jena.riot.RDFWriter
-import org.apache.jena.web.HttpSC
-import javax.servlet.Filter
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpFilter
-import javax.servlet.ServletRequest
-import javax.servlet.ServletResponse
-import javax.servlet.FilterChain
-import bandana.AssemblerRoleRegistry
-
-import kotlin.text.StringBuilder
-import kotlin.Pair
-import java.io.StringWriter
-import java.util.function.Function;
-
 
 class BandanaModule : FusekiAutoModule {
 
-    init {
-    }
+    init {}
 
     override fun start() {
         println("The fuseki-plugin Bandana has started successfully")
     }
 
-    override fun stop() {
-    }
-    override fun configured(builder: FusekiServer.Builder, dapRegistry: DataAccessPointRegistry, configModel: Model) {
-        dapRegistry.accessPoints().forEach{ap ->
-            val service = ap.getDataService()
-            (service.getDataset() as? DatasetGraphAccessControl)?.let{ds ->
-                (ds.getAuthService() as? RoleRegistry)?.let{rr ->
-                    rr.setDataset(ds)
-                    builder.addFilter("${ap.name}/*", BandanaFilter(rr))
-                    builder.auth(AuthScheme.BEARER)
+    override fun stop() {}
+    override fun configured(
+            builder: FusekiServer.Builder,
+            dapRegistry: DataAccessPointRegistry,
+            configModel: Model?
+    ) {
+        // Find fuseki:Server node of config.ttl (might be null)
+        val serverNode = configModel?.let{getServer(configModel)}
+        // Apply server-wide auth-filter if configured
+        val serverFilter =
+                serverNode?.let(::getAuth)?.also {
+                    builder.addFilter("*", it)
+                    if (it is AuthenticationFilter) builder.auth(it.authScheme)
+                }
+
+        dapRegistry.accessPoints().forEach { accessPoint ->
+            // Find fuseki:Service node with fuseki:name = ap.name
+            val serviceNode = configModel?.let{getService(accessPoint.name, serverNode, configModel)}
+            // Apply service-wide auth-filter if configured
+            val serviceFilter =
+                    serviceNode?.let(::getAuth)?.also {
+                        builder.addFilter("${accessPoint.name}/*", it)
+                        if (it is AuthenticationFilter) builder.auth(it.authScheme)
+                    }
+
+            val service = accessPoint.getDataService()
+            var authAttrKey: String? = null
+            (service.getDataset() as? DatasetGraphAccessControl)?.let { dataset ->
+                (dataset.getAuthService() as? RoleRegistry)?.let { roleRegistry ->
+                    // Inject dataset, not directly doable from AssemblerRole-
+                    // Registry due to service injection
+                    roleRegistry.setDataset(dataset)
+                    // pass configured claimsPath to any serviceFilter/serverFilter
+                    (serverFilter as? AuthorizationProvider)?.apply {
+                        authAttrKey = roleRegistry.authAttrKey
+                    }
+                    (serviceFilter as? AuthorizationProvider)?.apply {
+                        authAttrKey = roleRegistry.authAttrKey
+                    }
+
+                    // pass configured claimsPath along to lifecycle hook
+                    authAttrKey = roleRegistry.authAttrKey
+                }
+            }
+            service.forEachEndpoint { endpoint ->
+                // Find fuseki:Endpoint node with fuseki:name = ep.name and
+                // resolve any bandana:authentication configuration
+                val endpointFilter =
+                        serviceNode?.let { getEndpoint(endpoint.name, it) }?.let(::getAuth)
+                endpointFilter?.also {
+                    builder.addFilter("${accessPoint.name}/${endpoint.name}/*", it)
+                }
+
+                // inject claimsPath from authorization config {@link RoleRegistry}
+                // into authentication filter if it is an {@link AuthorizationProvider}.
+                // This controls
+                if (authAttrKey != null && endpointFilter is AuthorizationProvider) {
+                    endpointFilter.authAttrKey = authAttrKey ?: throw IllegalStateException()
                 }
             }
         }
     }
 
     override fun serverAfterStarting(server: FusekiServer) {
+
+        // This configuration would ideally be called in the previous lifecycle
+        // hook {@link configured}, but the implementation has a non-overridable
+        // call to {@link FusekiLib.modifyForAccessCtl} which runs _after_
+        // {@link configured} in the event that {@link DataService.dataset} is a
+        // {@link DatasetGraphAccessControl} (which Bandana relies on!).
         val dapRegistry = DataAccessPointRegistry.get(server.servletContext)
-        dapRegistry.accessPoints().forEach{ap ->
-            val service = ap.getDataService()
-            (service.getDataset() as? DatasetGraphAccessControl)?.let{ dataset ->
-                (dataset.getAuthService() as? RoleRegistry)?.let{ registry ->
-                    val writeRoles = registry.getWriteRoles();
-                    service.forEachEndpoint {
-                        modifyEndpointForAccessControl(it, writeRoles, ::getRoles)
+        dapRegistry.accessPoints().forEach { accessPoint ->
+            val service = accessPoint.getDataService()
+            (service.getDataset() as? DatasetGraphAccessControl)?.let { dataset ->
+                (dataset.getAuthService() as? RoleRegistry)?.let { roleRegistry ->
+                    val path = roleRegistry.authAttrKey
+                    val getRoles = { a: HttpAction -> a.getRequest().getAttribute(path) as String }
+                    val writeRoles = roleRegistry.getWriteRoles()
+                    service.forEachEndpoint { endpoint ->
+                        modifyEndpointForAccessControl(endpoint, writeRoles, getRoles)
                     }
                 }
             }
         }
     }
 
-
     override fun name() = "Bandana"
+}
 
-    fun modifyEndpointForAccessControl(endpoint: Endpoint, writeRoles: Set<String>, determineUser: Function<HttpAction, String>) {
-        val actionService = when (endpoint.getOperation()) {
-            Operation.Query -> AccessCtl_SPARQL_QueryDataset(determineUser)
-            Operation.GSP_R -> AccessCtl_GSP_R(determineUser)
-            Operation.GSP_RW -> BandanaAccessCtl_RequireRole(GSP_RW(), writeRoles, determineUser);
-            Operation.Update -> BandanaAccessCtl_RequireRole(SPARQL_Update(), writeRoles, determineUser);
-            Operation.Upload -> BandanaAccessCtl_RequireRole(UploadRDF(), writeRoles, determineUser);
-            else -> throw Exception("Access control not implemented for " + endpoint.getOperation())
+class BandanaAccessCtl_RequireRole(
+        other: ActionService,
+        allowedRoles: Set<String>,
+        determineUser: Function<HttpAction, String>
+) : ActionService() {
+    private val other = other
+    private val determineUser = determineUser
+    private val allowedRoles = allowedRoles
+
+    override fun validate(action: HttpAction) {
+        val roles = determineUser.apply(action)
+        val denied = roles.split('\n').intersect(allowedRoles).isEmpty()
+        if (denied) {
+            ServletOps.errorForbidden()
+        } else {
+            other.validate(action)
         }
-        endpoint.setProcessor(actionService);
     }
 
-
-    fun getRoles(action: HttpAction): String {
-        return action.getRequest().getAttribute("roles") as String
+    override fun execute(action: HttpAction) {
+        other.execute(action)
     }
 
-    class BandanaAccessCtl_RequireRole(other: ActionService, allowedRoles: Set<String>, determineUser: Function<HttpAction, String>) : ActionService() {
-        private val other = other;
-        private val determineUser = determineUser;
-        private val allowedRoles = allowedRoles;
+    override fun execAny(method: String, action: HttpAction) {
+        executeLifecycle(action)
+    }
+}
 
-        override fun validate(action: HttpAction) {
-            val roles = determineUser.apply(action);
-            val denied = roles.split('\n').intersect(allowedRoles).isEmpty();
-            if (denied) {
-                ServletOps.errorForbidden();
-            } else {
-                other.validate(action)
+fun modifyEndpointForAccessControl(
+        endpoint: Endpoint,
+        writeRoles: Set<String>,
+        determineUser: Function<HttpAction, String>
+) {
+    val actionService =
+            when (endpoint.getOperation()) {
+                Operation.Query -> AccessCtl_SPARQL_QueryDataset(determineUser)
+                Operation.GSP_R -> AccessCtl_GSP_R(determineUser)
+                Operation.GSP_RW ->
+                        BandanaAccessCtl_RequireRole(GSP_RW(), writeRoles, determineUser)
+                Operation.Update ->
+                        BandanaAccessCtl_RequireRole(SPARQL_Update(), writeRoles, determineUser)
+                Operation.Upload ->
+                        BandanaAccessCtl_RequireRole(UploadRDF(), writeRoles, determineUser)
+                else ->
+                        throw Exception(
+                                "Access control not implemented for " + endpoint.getOperation()
+                        )
             }
-        }
-
-        override fun execute(action: HttpAction) {
-            other.execute(action);
-        }
-
-        override fun execAny(method: String, action: HttpAction) {
-            executeLifecycle(action)
-        }
-    }
-
-    class BandanaFilter(registry: RoleRegistry) : HttpFilter() {
-        private val _BEARER = "Bearer "
-        private val reg = registry
-        
-        override fun doFilter(req: HttpServletRequest, res: HttpServletResponse, ch: FilterChain) { 
-            val validator = JwtValidator.getInstance()
-            val autheader = req.getHeader("Authorization")
-
-            if(!autheader.startsWith(_BEARER))
-                throw IllegalArgumentException("Invalid Auth Scheme: " + autheader.substring(0, autheader.indexOf(" ").let{if(it < 0) autheader.length else it}))
-
-            val token = autheader.substring(_BEARER.length)
-            val claims = validator.validate(token)
-            val roleClaims = claims.getStringArrayClaim("roles")
-
-            req.setAttribute("roles", roleClaims.joinToString("\n"))
-            ch.doFilter(req, res)
-        }
-    };
-
+    endpoint.setProcessor(actionService)
 }

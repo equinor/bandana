@@ -158,20 +158,21 @@ abstract class ScopeFilter<N,T>(scopes: ScopeAccess) : Predicate<T>{
 	private fun _super(graph:N) = _dfs(graph,{typedArray(ANY, it, isSubRecordOf, ANY)}, ::`object`)
 	private fun _sub(graph:N) = _dfs(graph,{typedArray(ANY, ANY, isSubRecordOf, it)}, ::subject)
 	private fun _dfs(graph:N, pattern: (N)->Array<N>, project: (T) -> N) : Iterator<N> = iterator {
-		val s = ArrayDeque<N>(listOf(graph))
-		while(!s.isEmpty()){
-			val c = s.removeLast()
+		val stack = ArrayDeque<N>(listOf(graph))
+		while(!stack.isEmpty()){
+			val c = stack.removeLast()
 			yield(c)
-			for(t in find(*pattern(c))){
+			val (g,s,p,o) = pattern(c)
+			for(t in find(g,s,p,o)){
 				val p = project(t)
-				s.addLast(p)
+				stack.addLast(p)
 			}
 		}
 	}
 	
 
 	abstract fun typedArray(vararg elements:N): Array<N>
-	abstract fun find(vararg xs:N): Iterator<T>
+	abstract fun find(g:N, s:N, p:N, o:N): Iterator<T>
 	abstract fun graph(t:T) :N
 	abstract fun subject(t:T) :N
 	abstract fun predicate(t:T) :N
@@ -193,7 +194,7 @@ class ScopeFilterQuad(dsg:DatasetGraph, scopes: ScopeAccess) : ScopeFilter<Node,
 
     override val scopeIds: Array<Array<Node>> = super.scopeNodes
 
-    override fun find(vararg xs: Node): Iterator<Quad> = dataset.find(xs[0], xs[1], xs[2], xs[3])
+    override fun find(g:Node, s:Node, p:Node, o:Node): Iterator<Quad> = dataset.find(g,s,p,o)
 
     override fun graph(t: Quad): Node = t.graph
 
@@ -253,9 +254,9 @@ class ScopeFilterTDB2(dsg: DatasetGraph, scopes: ScopeAccess) : ScopeFilter<Node
 		}
 	}
 
- override fun find(vararg xs: NodeId): Iterator<Tuple<NodeId>> {
+ override fun find(g:NodeId, s:NodeId, p:NodeId, o:NodeId): Iterator<Tuple<NodeId>> {
 	val tt = TDBInternal.getDatasetGraphTDB(dataset).getQuadTable().getNodeTupleTable()
-	return tt.find(*xs)
+	return tt.find(g,s,p,o)
   }
 
  override fun graph(t: Tuple<NodeId>): NodeId = t.get(0)

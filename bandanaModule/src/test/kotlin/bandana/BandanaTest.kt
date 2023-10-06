@@ -1,28 +1,39 @@
 package bandana
 
-import kotlin.test.Test
-import kotlin.test.assertTrue
-
-import org.apache.jena.sys.JenaSystem
-import org.apache.jena.fuseki.system.FusekiLogging
-import org.apache.jena.fuseki.main.sys.FusekiModules
+import org.apache.jena.fuseki.access.DataAccessCtl
 import org.apache.jena.fuseki.main.FusekiServer
-import org.apache.jena.http.HttpEnv;
+import org.apache.jena.fuseki.main.sys.FusekiModules
+import org.apache.jena.fuseki.server.DataService
+import org.apache.jena.fuseki.server.Operation
+import org.apache.jena.fuseki.system.FusekiLogging
+import org.apache.jena.http.HttpEnv
 import org.apache.jena.rdfconnection.RDFConnection
-import org.junit.jupiter.api.BeforeAll
+import org.apache.jena.sparql.core.DatasetGraphFactory
+import org.apache.jena.sys.JenaSystem
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
-import java.net.http.HttpRequest
-import java.net.http.HttpRequest.BodyPublishers;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.net.URI
-import java.io.File
+import java.net.http.HttpRequest
+import java.net.http.HttpRequest.BodyPublishers
+import java.net.http.HttpResponse.BodyHandlers
+import kotlin.test.Test
 
+// class InMemoryTests : BandanaTestBase(){
+//     override fun getDataset() = DatasetGraphFactory.createTxnMem()
+// }
+const val TEST_READ_ROLE = "#"
+const val TEST_WRITE_ROLE = "*"
+const val TEST_DATASERVICE_NAME = "ds"
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BandanaTest {
+// abstract class BandanaTestBase {
 
-    var server : FusekiServer? = null
-    fun server() = server?:throw NullPointerException()
+    protected var server : FusekiServer? = null
+    protected fun server() = server?:throw NullPointerException()
+
+    fun getDataset() = DatasetGraphFactory.createTxnMem()
+    // abstract fun getDataset() : DatasetGraph
 
     @BeforeAll fun init(){
         JenaSystem.init();
@@ -39,16 +50,34 @@ class BandanaTest {
         // For this example, we add the module directly.
         var module = BandanaModule();
         var fusekiModules = FusekiModules.create(module);
+
+        // create authorization configuration
+        val reg = RoleRegistry().also{
+            it.addReadRole(TEST_READ_ROLE, ScopedSecurity)
+            it.addWriteRole(TEST_WRITE_ROLE)
+        }
+
+        // create access controlled dataset
+        val ds = getDataset()
+        val access_ds = DataAccessCtl.controlledDataset(ds,reg)
+
         // Create server.
         println("creating server")
         server =
             FusekiServer.create()
                 .port(0)
                 .fusekiModules(fusekiModules)
-                .parseConfigFile("config.ttl")
+                .add(TEST_DATASERVICE_NAME,
+                    DataService.newBuilder(access_ds)
+                    .addEndpoint(Operation.Query, "query")
+                    .addEndpoint(Operation.Update, "update")
+                )
+                .addFilter("/$TEST_DATASERVICE_NAME/query/*", HeaderAuthProvider())
+                .addFilter("/$TEST_DATASERVICE_NAME/update/*", QueryAuthProvider())
                 .verbose(true)
                 .build()
                 .start();
+
         println("test server started")
 
                 // Add some data to the database
@@ -81,7 +110,7 @@ INSERT DATA {
     }
 }
 """
-        val plainUrl = server().datasetURL("/plain/update");
+        val plainUrl = server().datasetURL("$TEST_DATASERVICE_NAME/update?Scope=$TEST_WRITE_ROLE")
         RDFConnection.connect(plainUrl).use{
             println("inserting data:\n$insert")
             try{
@@ -100,24 +129,23 @@ INSERT DATA {
     // }
 
     @Test fun testSelectFrom() {
-        testQueryWithToken("CONSTRUCT {?s ?p ?o} FROM <https://host/g3> WHERE {?s ?p ?o} ")
+        queryWithScopes("CONSTRUCT {?s ?p ?o} FROM <https://host/g3> WHERE {?s ?p ?o}","#", "https://rdf.equinor.com/test/facility/dugtrio" )
     }
-    private fun testQueryWithToken(query:String) {
+    private fun queryWithScopes(query:String, vararg scopes: String) {
 
-        var port = server().getPort()
+        var url = server().datasetURL("$TEST_DATASERVICE_NAME/query")
 
 
         // Client HTTP request: "PATCH /extra"
         println("reading token")
-        val token = BandanaTest::class.java.classLoader.getResource("test.token").readText()
         
         println("got token")
         var request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:"+port+"/secured/sparql"))
+                .uri(URI.create(url))
                 .method("POST", BodyPublishers.ofString(query))
-                .header("Authorization", "Bearer $token")
                 .header("Content-Type", "application/sparql-query")
-                .header("Accept", "application/trig")
+                .header("Accept", "text/turtle")
+                .headers(*sequence{for(s in scopes){yieldAll(listOf("Scope", s))}}.toList().toTypedArray())
                 .build();
         println("sending request")
         val res = HttpEnv.getDftHttpClient().send(request, BodyHandlers.ofString())
@@ -128,7 +156,7 @@ INSERT DATA {
 
     @AfterAll fun finish(){
         // cleanup, delete everything
-        val checkurl = server().datasetURL("/plain/update")
+        val checkurl = server().datasetURL("$TEST_DATASERVICE_NAME/update?Scope=$TEST_WRITE_ROLE")
         RDFConnection.connect(checkurl).use{
             it.update("DELETE WHERE {GRAPH ?g {?s ?p ?o}}")
         }
