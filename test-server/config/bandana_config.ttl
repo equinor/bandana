@@ -10,7 +10,7 @@
 @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
 
 
-[] ja:loadClass "bandana.AssemblerRoleRegistry" .
+[] ja:loadClass "bandana.AssemblerRoleRegistry", "bandana.AssemblerJWTBearerFilter" .
 
 [] rdf:type fuseki:Server ;
     #bandana:authentication <#filter> ;

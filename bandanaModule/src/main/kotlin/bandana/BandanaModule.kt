@@ -1,6 +1,5 @@
 package bandana
 
-import bandana.assembler.*
 import java.util.function.Function
 import org.apache.jena.fuseki.access.AccessCtl_GSP_R
 import org.apache.jena.fuseki.access.AccessCtl_SPARQL_QueryDataset
@@ -32,7 +31,7 @@ class BandanaModule : FusekiAutoModule {
         // Apply server-wide auth-filter if configured
         val serverFilter =
                 serverNode?.let(::getAuth)?.also {
-                    builder.addFilter("*", it)
+                    builder.addFilter("/*", it)
                     if (it is AuthenticationFilter) builder.auth(it.authScheme)
                 }
 
@@ -42,7 +41,7 @@ class BandanaModule : FusekiAutoModule {
             // Apply service-wide auth-filter if configured
             val serviceFilter =
                     serviceNode?.let(::getAuth)?.also {
-                        builder.addFilter("${accessPoint.name}/*", it)
+                        builder.addFilter("/${accessPoint.name}/*", it)
                         if (it is AuthenticationFilter) builder.auth(it.authScheme)
                     }
 
@@ -71,7 +70,7 @@ class BandanaModule : FusekiAutoModule {
                 val endpointFilter =
                         serviceNode?.let { getEndpoint(endpoint.name, it) }?.let(::getAuth)
                 endpointFilter?.also {
-                    builder.addFilter("${accessPoint.name}/${endpoint.name}/*", it)
+                    builder.addFilter("/${accessPoint.name}/${endpoint.name}/*", it)
                 }
 
                 // inject claimsPath from authorization config {@link RoleRegistry}

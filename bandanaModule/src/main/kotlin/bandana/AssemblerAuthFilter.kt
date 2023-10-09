@@ -1,4 +1,4 @@
-package bandana.assembler
+package bandana
 
 import bandana.HeaderAuthProvider
 import bandana.JWTBearerFilter
