@@ -51,7 +51,7 @@
 
 <#filter> rdf:type bandana:JWTBearerFilter ;
     bandana:issuer "ISSUER HERE";
-    bandana:audience "ISSUER HERE";
+    bandana:audience "AUDIENCE HERE";
     bandana:jwkSetURL "JWKSetUrl HERE";
     bandana:requiredClaim "roles" .
 
