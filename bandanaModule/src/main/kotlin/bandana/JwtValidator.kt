@@ -94,7 +94,7 @@ class JwtValidator private constructor() {
         private var requiredClaims: Set<String>? = null
         fun setRequiredClaims(set: Set<String>){
             if(set.equals(requiredClaims)) return
-            if(INSTANCE != null || audience != null) throw IllegalStateException("requiredClaims may not be changed after configuration.")
+            if(INSTANCE != null || requiredClaims != null) throw IllegalStateException("requiredClaims may not be changed after configuration.")
             requiredClaims = set
 
         }
