@@ -7,7 +7,6 @@ plugins {
     // include it in fuseki.
     id("com.github.johnrengelman.shadow") version "7.1.0"
     `java-library`
-    `java-test-fixtures`
 }
 
 repositories {
@@ -23,12 +22,13 @@ dependencies {
     implementation("org.apache.jena", "jena-fuseki-server", "4.9.0")
 
     // Jwt handling using nimbusds
-    implementation("com.nimbusds", "oauth2-oidc-sdk", "10.13.2");
-    implementation("com.nimbusds", "nimbus-jose-jwt", "9.31");
+    implementation("com.nimbusds", "oauth2-oidc-sdk", "10.13.2")
+    implementation("com.nimbusds", "nimbus-jose-jwt", "9.31")
 
     // Test related
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.9.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.9.2")
     testImplementation("org.junit.platform:junit-platform-runner:1.10.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(kotlin("test"))

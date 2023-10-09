@@ -1,11 +1,6 @@
 package bandana
 
-import bandana.HeaderAuthProvider
-import bandana.JWTBearerFilter
-import bandana.JwtValidator
-import bandana.QueryAuthProvider
 import bandana.vocab.*
-import javax.servlet.http.HttpFilter
 import org.apache.jena.assembler.Assembler
 import org.apache.jena.assembler.Mode
 import org.apache.jena.assembler.assemblers.AssemblerBase
@@ -16,6 +11,7 @@ import org.apache.jena.rdf.model.Model
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.sparql.util.MappingRegistry
 import org.apache.jena.vocabulary.RDF
+import javax.servlet.http.HttpFilter
 
 fun getServer(configModel: Model): Resource? {
     val servers = configModel.listResourcesWithProperty(RDF.type, FusekiVocab.tServer)
@@ -28,7 +24,7 @@ fun getService(name: String, server: Resource?, configModel: Model): Resource? {
             iterator i@{
                 if (server == null) return@i
                 props@ for (p in
-                        server.listProperties(FusekiVocab.pServices).mapWith { it.getObject() }) {
+                server.listProperties(FusekiVocab.pServices).mapWith { it.getObject() }) {
                     if (p !is Resource) continue@props
                     try {
                         var list = server.getModel().getList(p)
@@ -45,7 +41,9 @@ fun getService(name: String, server: Resource?, configModel: Model): Resource? {
     if (!services.hasNext()) {
         services = configModel.listResourcesWithProperty(RDF.type, FusekiVocab.fusekiService)
     }
-    services = Iter.filter(services) { s -> s.hasProperty(FusekiVocab.pServiceName, name) }
+    // Fuseki adds leading (and removes trailing) '/' to DAP names (wrt literal from config)
+    val `uncanonicalized name` = name.trim('/')
+    services = Iter.filter(services) { s -> s.hasProperty(FusekiVocab.pServiceName, `uncanonicalized name`) }
     if (!services.hasNext()) return null
     return services.next()
 }
@@ -96,9 +94,9 @@ class AssemblerJWTBearerFilter() : AssemblerBase() {
 
         val requiredClaims = HashSet<String>()
         for (claim in
-                root.listProperties(pRequiredClaim).mapWith {
-                    it.`object`.asLiteral().getString()
-                }) {
+        root.listProperties(pRequiredClaim).mapWith {
+            it.`object`.asLiteral().getString()
+        }) {
             requiredClaims.add(claim)
         }
         JwtValidator.setRequiredClaims(requiredClaims)
@@ -122,6 +120,7 @@ class AssemblerHeaderAuthProvider() : AssemblerBase() {
         return HeaderAuthProvider(scopeHeaderKey)
     }
 }
+
 class AssemblerQueryAuthProvider() : AssemblerBase() {
     companion object {
         init {
