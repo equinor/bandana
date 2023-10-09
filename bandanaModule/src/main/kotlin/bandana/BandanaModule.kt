@@ -41,7 +41,7 @@ class BandanaModule : FusekiAutoModule {
             // Apply service-wide auth-filter if configured
             val serviceFilter =
                     serviceNode?.let(::getAuth)?.also {
-                        builder.addFilter("/${accessPoint.name}/*", it)
+                        builder.addFilter("${accessPoint.name}/*", it)
                         if (it is AuthenticationFilter) builder.auth(it.authScheme)
                     }
 
@@ -70,7 +70,7 @@ class BandanaModule : FusekiAutoModule {
                 val endpointFilter =
                         serviceNode?.let { getEndpoint(endpoint.name, it) }?.let(::getAuth)
                 endpointFilter?.also {
-                    builder.addFilter("/${accessPoint.name}/${endpoint.name}/*", it)
+                    builder.addFilter("${accessPoint.name}/${endpoint.name}/*", it)
                 }
 
                 // inject claimsPath from authorization config {@link RoleRegistry}
