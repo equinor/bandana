@@ -64,7 +64,7 @@ class HeaderAuthProvider(_scopeHeaderKey: String? = null) : HttpFilter(), Author
     override var authAttrKey: String = DEFAULT_AUTH_ATTR_KEY
 
     override fun doFilter(req: HttpServletRequest, res: HttpServletResponse, ch: FilterChain) {
-        val autheader = req.getHeaders(scopeHeaderKey)
+        val autheader = req.getHeaders(scopeHeaderKey).asSequence().flatMap{it.split(Regex(",\\s*"))}.map{it.replace(Regex(";\\s*"), "\t")}
 
         req.setAttribute(authAttrKey, autheader.toList().joinToString("\n"))
         ch.doFilter(req, res)

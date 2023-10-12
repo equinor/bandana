@@ -1,5 +1,6 @@
 package bandana
 
+import org.apache.jena.fuseki.access.DatasetGraphAccessControl
 import org.apache.jena.fuseki.main.FusekiServer
 import org.apache.jena.fuseki.main.sys.FusekiModules
 import org.apache.jena.fuseki.system.FusekiLogging
@@ -11,7 +12,8 @@ import org.apache.jena.sys.JenaSystem
 import org.eclipse.jetty.servlet.FilterHolder
 import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHandler
-import org.junit.Assert
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.BeforeTest
@@ -44,28 +46,52 @@ class AssemblerTest {
     fun `config authentication location test`(loc: String) {
         val config = servicettl +
                 """
-                :service fuseki:dataset [ rdf:type ja:MemoryDataset ] .
-                $loc bandana:authentication [rdf:type bandana:QueryAuthProvider ] .
-                """.trimIndent()
-        val configModel = ModelFactory.createDefaultModel()
-        RDFParser.fromString(config)
-                .lang(RDFLanguages.TURTLE)
-                .parse(StreamRDFLib.graph(configModel.graph))
-        builder.parseConfig(configModel)
+            :service fuseki:dataset [ rdf:type ja:MemoryDataset ] .
+            $loc bandana:authentication [rdf:type bandana:QueryAuthProvider ] .
+            """.trimIndent()
+        builder.parseConfigString(config)
         val server = builder.build()
-        Assert.assertTrue(
-                "Configured authorization provider should be in the list of configured HttpFilters.",
-                server.jettyServer.handlers.any { sh ->
-                    sh is ServletContextHandler && sh.handlers.any { h ->
-                        h is ServletHandler && h.filters.any { f ->
-                            f is FilterHolder && f.heldClass == QueryAuthProvider::class.java
-                        }
-                    }
-                })
+        Assertions.assertTrue(server.jettyServer.handlers.any { sh ->
+            sh is ServletContextHandler && sh.handlers.any { h ->
+                h is ServletHandler && h.filters.any { f ->
+                    f is FilterHolder && f.heldClass == QueryAuthProvider::class.java
+                }
+            }
+        }, "Configured authorization provider should be in the list of configured HttpFilters.")
+    }
 
+    @Test
+    fun `config authorization registry test`() {
+        val config = servicettl +
+                """
+            :service fuseki:dataset
+              [ a access:AccessControlledDataset ;
+                access:dataset [ a ja:MemoryDataset ] ;
+                access:registry 
+                  [ a bandana:RoleRegistry ;
+                    bandana:entry [ bandana:role "query" ; bandana:access bandana:ScopeAuthorization ] ;
+                    bandana:alias ("role.example1" <https://example.com/someScope>) ] ] .
+            """.trimIndent()
+        builder.parseConfigString(config)
+        val server = builder.build()
+        var hasRoleRegistry = false
+        server.dataAccessPointRegistry.forEach { _, dap ->
+            (dap.dataService.dataset as? DatasetGraphAccessControl)?.apply {
+                if (authService is RoleRegistry) hasRoleRegistry = true
+            }
+        }
+        Assertions.assertTrue(hasRoleRegistry, "Authorization Service should be a RoleRegistry")
     }
 
 
+}
+
+private fun FusekiServer.Builder.parseConfigString(config: String) {
+    val configModel = ModelFactory.createDefaultModel()
+    RDFParser.fromString(config)
+            .lang(RDFLanguages.TURTLE)
+            .parse(StreamRDFLib.graph(configModel.graph))
+    this.parseConfig(configModel)
 }
 
 

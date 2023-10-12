@@ -6,17 +6,21 @@ import org.apache.jena.fuseki.main.sys.FusekiModules
 import org.apache.jena.fuseki.server.DataService
 import org.apache.jena.fuseki.server.Operation
 import org.apache.jena.fuseki.system.FusekiLogging
+import org.apache.jena.graph.Graph
 import org.apache.jena.http.HttpEnv
 import org.apache.jena.rdfconnection.RDFConnection
 import org.apache.jena.sparql.core.DatasetGraph
 import org.apache.jena.sparql.core.DatasetGraphFactory
+import org.apache.jena.sparql.exec.http.QueryExecHTTP
 import org.apache.jena.sys.JenaSystem
 import org.apache.jena.tdb2.sys.TDBInternal
 import org.apache.jena.tdb2.DatabaseMgr
+import org.junit.Assert
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.lang.IllegalStateException
 import java.net.URI
 import java.net.http.HttpRequest
@@ -24,16 +28,16 @@ import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse.BodyHandlers
 import java.nio.file.Files
 import java.nio.file.Path
-import java.time.LocalDateTime
 import kotlin.io.path.createTempDirectory
-import kotlin.io.path.pathString
 import kotlin.test.Test
 
-const val TEST_READ_ROLE = "#"
-const val TEST_WRITE_ROLE = "*"
-const val TEST_DATASERVICE_NAME = "ds"
+const val READ_ROLE = "#"
+const val WRITE_ROLE = "*"
+const val BANDANA_SERVICE_NAME = "bandana"
+const val FUSEKI_SERVICE_NAME = "fuseki"
 
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class InMemoryTests : BandanaTestBase() {
     override fun getDataset(): DatasetGraph = DatasetGraphFactory.createTxnMem()
 }
@@ -80,6 +84,12 @@ class TDB2Tests : BandanaTestBase() {
 }
 
 
+private const val s1 = "https://rdf.equinor.com/test/facility/dugtrio"
+
+private const val s2 = "CONSTRUCT {?s ?p ?o} FROM <https://host/g3> WHERE {?s ?p ?o}"
+
+private const val s3 = "CONSTRUCT {?s ?p ?o} WHERE {GRAPH <urn:x-arg:UnionGraph> {?s ?p ?o}}"
+
 //class BandanaTest {
 abstract class BandanaTestBase {
     protected var server: FusekiServer? = null
@@ -108,8 +118,8 @@ abstract class BandanaTestBase {
 
         // create authorization configuration
         val reg = RoleRegistry().also {
-            it.addReadRole(TEST_READ_ROLE, ScopedSecurity)
-            it.addWriteRole(TEST_WRITE_ROLE)
+            it.addReadRole(READ_ROLE, ScopedSecurity)
+            it.addWriteRole(WRITE_ROLE)
         }
 
         // create access controlled dataset
@@ -122,13 +132,16 @@ abstract class BandanaTestBase {
                 FusekiServer.create()
                         .port(0)
                         .fusekiModules(fusekiModules)
-                        .add(TEST_DATASERVICE_NAME,
+                        .add(BANDANA_SERVICE_NAME,
                                 DataService.newBuilder(access_ds)
                                         .addEndpoint(Operation.Query, "query")
                                         .addEndpoint(Operation.Update, "update")
                         )
-                        .addFilter("/$TEST_DATASERVICE_NAME/query/*", HeaderAuthProvider())
-                        .addFilter("/$TEST_DATASERVICE_NAME/update/*", QueryAuthProvider())
+                        .add(FUSEKI_SERVICE_NAME,
+                                DataService.newBuilder(ds)
+                                        .addEndpoint(Operation.Query, "query"))
+                        .addFilter("/$BANDANA_SERVICE_NAME/query/*", HeaderAuthProvider())
+                        .addFilter("/$BANDANA_SERVICE_NAME/update/*", QueryAuthProvider())
                         .verbose(true)
                         .build()
                         .start();
@@ -147,7 +160,8 @@ INSERT DATA {
         _:a :in :g5 .
     }
     GRAPH :g4 {
-        :g4 rec:isSubRecordOf :g3 .
+        :g4 rec:isSubRecordOf :g3 ;
+            rec:isInScope <discipline/IT> .
         _:a :in :g4 .
     }
     GRAPH :g3 {
@@ -156,8 +170,9 @@ INSERT DATA {
         _:a :in :g3 .
         }
     GRAPH :g2 {
-        :g2 rec:isSubRecordOf :g1 .
-        _:a :in :g3 .
+        :g2 rec:isSubRecordOf :g1 ;
+        rec:isInScope <discipline/admin> .
+        _:a :in :g2 .
     }
     GRAPH :g1 {
         :g1 rec:isInScope <facility/dugtrio> .
@@ -165,7 +180,7 @@ INSERT DATA {
     }
 }
 """
-        val plainUrl = server().datasetURL("$TEST_DATASERVICE_NAME/update?Scope=$TEST_WRITE_ROLE")
+        val plainUrl = server().datasetURL("$BANDANA_SERVICE_NAME/update?Scope=$WRITE_ROLE")
         RDFConnection.connect(plainUrl).use {
             println("inserting data:\n$insert")
             try {
@@ -183,7 +198,7 @@ INSERT DATA {
     open fun finish() {
         println("Cleanup after tests")
         // cleanup, delete everything
-        val checkurl = server().datasetURL("$TEST_DATASERVICE_NAME/update?Scope=$TEST_WRITE_ROLE")
+        val checkurl = server().datasetURL("$BANDANA_SERVICE_NAME/update?Scope=$WRITE_ROLE")
         RDFConnection.connect(checkurl).use {
             it.update("DELETE WHERE {GRAPH ?g {?s ?p ?o}}")
         }
@@ -194,18 +209,157 @@ INSERT DATA {
     }
 
 
-    // @Test fun testScopeAccess() {
-    //     testQueryWithToken("CONSTRUCT {GRAPH ?g {?s ?p ?o} } WHERE { GRAPH ?g {?s ?p ?o}}")
-    // }
-
+    @ParameterizedTest(name= "{index} => count {0} {1} expect {2}")
+    @CsvSource(delimiter=',',textBlock="""
+                                 , GRAPH <urn:x-arq:UnionGraph>     , 13
+                                 , GRAPH ?var                       , 13
+FROM <urn:x-arq:UnionGraph>      ,                                  , 13
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:UnionGraph>     , 0
+FROM <urn:x-arq:UnionGraph>      , GRAPH ?var                       , 0
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:DefaultGraph>   , 13
+FROM NAMED <urn:x-arq:UnionGraph>,                                  , 0
+FROM NAMED <urn:x-arq:UnionGraph>, GRAPH <urn:x-arq:UnionGraph>     , 0
+FROM NAMED <urn:x-arq:UnionGraph>, GRAPH ?var                       , 0
+                                 , GRAPH <https://host/g3>          , 3
+FROM <urn:x-arq:UnionGraph>      , GRAPH <https://host/g3>          , 0
+FROM NAMED <urn:x-arq:UnionGraph>, GRAPH <https://host/g3>          , 0
+FROM <https://host/g3>           ,                                  , 3
+FROM <https://host/g3>           , GRAPH <urn:x-arq:UnionGraph>     , 0
+FROM <https://host/g3>           , GRAPH <urn:x-arq:DefaultGraph>   , 3
+FROM <https://host/g3>           , GRAPH ?var                       , 0
+FROM <https://host/g3>           , GRAPH <https://host/g3>          , 0
+FROM NAMED <https://host/g3>     ,                                  , 0
+FROM NAMED <https://host/g3>     , GRAPH <urn:x-arq:UnionGraph>     , 3
+FROM NAMED <https://host/g3>     , GRAPH ?var                       , 3
+FROM NAMED <https://host/g3>     , GRAPH <https://host/g3>          , 3
+""")
+    fun `Unsecured FROM UnionGraph behavior`(from:String?, graph: String?, count: Int) {
+        val query = StringBuilder().apply{
+            append("CONSTRUCT {?s ?p ?o} ")
+            if(from != null) append(from)
+            append(" WHERE ")
+            if(graph != null) append(" { $graph")
+            append("{ ?s ?p ?o }")
+            if(graph != null) append(" }")
+        }.toString()
+        val g = constructQueryGraph(FUSEKI_SERVICE_NAME,query);
+        println("$from $graph: ${g.size()}")
+        Assert.assertEquals(count, g.size())
+    }
+    @ParameterizedTest(name= "<{2} {3}> count {0} {1} expect {4}")
+    @CsvSource(delimiter=',',textBlock="""
+                                 , GRAPH <urn:x-arq:UnionGraph>     , facility/dugtrio      ,   , 13
+                                 , GRAPH ?var                       , facility/dugtrio      ,   , 13
+FROM <urn:x-arq:UnionGraph>      ,                                  , facility/dugtrio      ,   , 13
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:DefaultGraph>   , facility/dugtrio      ,   , 13
+                                 , GRAPH <https://host/g3>          , facility/dugtrio      ,   , 3
+FROM <https://host/g3>           ,                                  , facility/dugtrio      ,   , 3
+FROM <https://host/g3>           , GRAPH <urn:x-arq:DefaultGraph>   , facility/dugtrio      ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH <urn:x-arq:UnionGraph>     , facility/dugtrio      ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH ?var                       , facility/dugtrio      ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH <https://host/g3>          , facility/dugtrio      ,   , 3
+                                 , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   ,   , 8
+                                 , GRAPH ?var                       , contract/1234567890   ,   , 8
+FROM <urn:x-arq:UnionGraph>      ,                                  , contract/1234567890   ,   , 8
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   ,   , 8
+                                 , GRAPH <https://host/g3>          , contract/1234567890   ,   , 3
+FROM <https://host/g3>           ,                                  , contract/1234567890   ,   , 3
+FROM <https://host/g3>           , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH ?var                       , contract/1234567890   ,   , 3
+FROM NAMED <https://host/g3>     , GRAPH <https://host/g3>          , contract/1234567890   ,   , 3
+                                 , GRAPH <https://host/g2>          , contract/1234567890   ,   , 0
+FROM <https://host/g2>           ,                                  , contract/1234567890   ,   , 0
+FROM <https://host/g2>           , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   ,   , 0
+FROM NAMED <https://host/g2>     , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   ,   , 0
+FROM NAMED <https://host/g2>     , GRAPH ?var                       , contract/1234567890   ,   , 0
+FROM NAMED <https://host/g2>     , GRAPH <https://host/g2>          , contract/1234567890   ,   , 0
+                                 , GRAPH <urn:x-arq:UnionGraph>     , facility/dugtrio      , discipline/IT  , 5
+                                 , GRAPH ?var                       , facility/dugtrio      , discipline/IT  , 5
+FROM <urn:x-arq:UnionGraph>      ,                                  , facility/dugtrio      , discipline/IT  , 5
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:DefaultGraph>   , facility/dugtrio      , discipline/IT  , 5
+                                 , GRAPH <https://host/g3>          , facility/dugtrio      , discipline/IT  , 0
+FROM <https://host/g3>           ,                                  , facility/dugtrio      , discipline/IT  , 0
+FROM <https://host/g3>           , GRAPH <urn:x-arq:DefaultGraph>   , facility/dugtrio      , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH <urn:x-arq:UnionGraph>     , facility/dugtrio      , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH ?var                       , facility/dugtrio      , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH <https://host/g3>          , facility/dugtrio      , discipline/IT  , 0
+                                 , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   , discipline/IT  , 5
+                                 , GRAPH ?var                       , contract/1234567890   , discipline/IT  , 5
+FROM <urn:x-arq:UnionGraph>      ,                                  , contract/1234567890   , discipline/IT  , 5
+FROM <urn:x-arq:UnionGraph>      , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   , discipline/IT  , 5
+                                 , GRAPH <https://host/g3>          , contract/1234567890   , discipline/IT  , 0
+FROM <https://host/g3>           ,                                  , contract/1234567890   , discipline/IT  , 0
+FROM <https://host/g3>           , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH ?var                       , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g3>     , GRAPH <https://host/g3>          , contract/1234567890   , discipline/IT  , 0
+                                 , GRAPH <https://host/g2>          , contract/1234567890   , discipline/IT  , 0
+FROM <https://host/g2>           ,                                  , contract/1234567890   , discipline/IT  , 0
+FROM <https://host/g2>           , GRAPH <urn:x-arq:DefaultGraph>   , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g2>     , GRAPH <urn:x-arq:UnionGraph>     , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g2>     , GRAPH ?var                       , contract/1234567890   , discipline/IT  , 0
+FROM NAMED <https://host/g2>     , GRAPH <https://host/g2>          , contract/1234567890   , discipline/IT  , 0
+""")
+    fun `Secured FROM UnionGraph behavior`(from:String?, graph: String?, scope1: String, scope2: String?, count: Int) {
+        val query = StringBuilder().apply{
+            append("CONSTRUCT {?s ?p ?o} ")
+            if(from != null) append(from)
+            append(" WHERE ")
+            if(graph != null) append(" { $graph")
+            append("{ ?s ?p ?o }")
+            if(graph != null) append(" }")
+        }.toString()
+        val g = if(scope2 == null) constructQueryGraph(BANDANA_SERVICE_NAME,query, READ_ROLE, "https://rdf.equinor.com/test/$scope1")
+                else constructQueryGraph(BANDANA_SERVICE_NAME,query, READ_ROLE, "https://rdf.equinor.com/test/$scope1;https://rdf.equinor.com/test/$scope2")
+        println("<$scope1 ${scope2 ?: ""}>${from ?: ""} ${graph?:""}: ${g.size()}")
+        Assert.assertEquals(count, g.size())
+    }
     @Test
     fun testSelectFrom() {
         queryWithScopes("CONSTRUCT {?s ?p ?o} FROM <https://host/g3> WHERE {?s ?p ?o}", "#", "https://rdf.equinor.com/test/facility/dugtrio")
     }
 
+    @Test
+    fun testSelectFromUnion() {
+        queryWithScopes("CONSTRUCT {?s ?p ?o} FROM <urn:x-arq:UnionGraph> WHERE {?s ?p ?o}", "#", "https://rdf.equinor.com/test/contract/1234567890")
+    }
+
+    @Test
+    fun testSelectFromNamedUnion() {
+        queryWithScopes("CONSTRUCT {?s ?p ?o} FROM NAMED <urn:x-arq:UnionGraph> WHERE {GRAPH <urn:x-arq:UnionGraph> {?s ?p ?o} }", "#", "https://rdf.equinor.com/test/contract/1234567890")
+    }
+
+    @Test
+    fun testSelectFromGraphUnion() {
+        queryWithScopes("CONSTRUCT {?s ?p ?o} WHERE {GRAPH <urn:x-arq:UnionGraph> {?s ?p ?o} }", "#", "https://rdf.equinor.com/test/contract/1234567890")
+    }
+
+    @Test
+    fun testSelectFromG2NoAccess() {
+        queryWithScopes("CONSTRUCT {?s ?p ?o} FROM <https://host/g2> WHERE {?s ?p ?o}", "#", "https://rdf.equinor.com/test/contract/1234567890")
+    }
+
+    @Test
+    fun testSelectFromG2WithAccess() {
+        queryWithScopes("CONSTRUCT {?s ?p ?o} FROM <https://host/g2> WHERE {?s ?p ?o}", "#", "https://rdf.equinor.com/test/facility/dugtrio")
+    }
+
+    private fun constructQueryGraph(ds: String, query: String, vararg scopes: String): Graph {
+        QueryExecHTTP.newBuilder()
+                .endpoint(server().datasetURL("$ds/query"))
+                .queryString(query)
+                .httpHeader("Scope", scopes.joinToString(",") )
+                .postQuery()
+                .build()
+                .use {
+                    return it.construct()
+                }
+    }
+
     private fun queryWithScopes(query: String, vararg scopes: String) {
 
-        var url = server().datasetURL("$TEST_DATASERVICE_NAME/query")
+        var url = server().datasetURL("$BANDANA_SERVICE_NAME/query")
 
 
         // Client HTTP request: "PATCH /extra"
