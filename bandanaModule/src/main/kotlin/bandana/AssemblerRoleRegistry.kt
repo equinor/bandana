@@ -1,6 +1,6 @@
 package bandana
 
-import java.util.function.Function
+import java.util.function.BiFunction
 import org.apache.jena.assembler.Assembler
 import org.apache.jena.assembler.Mode
 import org.apache.jena.assembler.assemblers.AssemblerBase
@@ -23,19 +23,11 @@ import org.apache.jena.sparql.util.MappingRegistry
 import org.apache.jena.sparql.util.graph.GNode
 import org.apache.jena.sparql.util.graph.GraphList
 
-const val ns = "http://rdf.equinor.com/ontology/bandana#"
+import bandana.vocab.*
 
 class AssemblerRoleRegistry() : AssemblerBase() {
     companion object {
-        @JvmStatic val tRoleRegistry = ResourceFactory.createResource(ns + "RoleRegistry") ?: throw NullPointerException()
-        @JvmStatic val pEntry = ResourceFactory.createProperty(ns + "entry") ?: throw NullPointerException()
-        @JvmStatic val pAlias = ResourceFactory.createProperty(ns + "alias") ?: throw NullPointerException()
-        @JvmStatic val pRole = ResourceFactory.createProperty(ns + "role") ?: throw NullPointerException()
-        @JvmStatic val pAccess = ResourceFactory.createProperty(ns + "access") ?: throw NullPointerException()
-        @JvmStatic val tScopeAuthorization = ResourceFactory.createResource(ns + "ScopeAuthorization") ?: throw NullPointerException()
-        @JvmStatic val tNoAuthorization = ResourceFactory.createResource(ns + "NoAuthorization") ?: throw NullPointerException()
-        @JvmStatic val tWriteAuthorization = ResourceFactory.createResource(ns + "WriteAuthorization") ?: throw NullPointerException()
-
+    
         init {
             MappingRegistry.addPrefixMapping("bandana", ns)
             Assembler.general.implementWith(tRoleRegistry, AssemblerRoleRegistry())
@@ -62,8 +54,8 @@ class AssemblerRoleRegistry() : AssemblerBase() {
                     registry.addWriteRole(role.getString())
                 } else {
                     val sCtx = when(access) {
-                            tScopeAuthorization -> ScopedSecurity()
-                            tNoAuthorization -> NoSecurity()
+                            tScopeAuthorization -> ScopedSecurity
+                            tNoAuthorization -> NoSecurity
                             else -> throw AssemblerException(root,"Found bandana:entry but bandana:access was either missing or not a resource: " +it)
                         }
                     registry.addReadRole(role.getString(), sCtx)
@@ -97,14 +89,14 @@ class AssemblerRoleRegistry() : AssemblerBase() {
     }
 }
 
-typealias ScopeContextFactory = Function<ScopeAccess, SecurityContext>
+typealias ScopeContextFactory = BiFunction<ScopeAccess,DatasetGraph, SecurityContext>
 typealias ScopeAccess = Array<Array<Node>>
 
-class ScopedSecurity() : ScopeContextFactory  {
+val ScopedSecurity = object : ScopeContextFactory  {
 
-    override fun apply(scopes: ScopeAccess): SecurityContext = ScopedSecurityContext(scopes)
+    override fun apply(scopes: ScopeAccess, dsg: DatasetGraph): SecurityContext = ScopedSecurityContext(scopes, dsg)
 }
-class NoSecurity() : ScopeContextFactory {
+val NoSecurity = object : ScopeContextFactory {
 
-    override fun apply(scopes: ScopeAccess): SecurityContext = SecurityContextAllowAll()
+    override fun apply(scopes: ScopeAccess, dsg: DatasetGraph): SecurityContext = SecurityContextAllowAll()
 }

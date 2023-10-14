@@ -1,5 +1,6 @@
 build
 .gradle
+.idea
 bin
 tdb2
 bandanaModule/src/test/resources/test.token

@@ -10,16 +10,19 @@
 @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
 
 
-[] ja:loadClass "bandana.AssemblerRoleRegistry" .
+[] ja:loadClass "bandana.AssemblerRoleRegistry", "bandana.AssemblerJWTBearerFilter" .
 
 [] rdf:type fuseki:Server ;
-   fuseki:services (
-     :ds
-   ) .
+    #bandana:authentication <#filter> ;
+    fuseki:services (
+        :ds
+    ) .
 
 :ds rdf:type fuseki:Service ;
     fuseki:name "ds" ;
+    bandana:authentication <#filter> ;
     fuseki:endpoint [
+    #bandana:authentication <#filter> ;
         fuseki:operation fuseki:query ;
         fuseki:name "sparql"
     ];
@@ -45,6 +48,12 @@
     ] ;
     fuseki:dataset <#access_dataset> ;
     .
+
+<#filter> rdf:type bandana:JWTBearerFilter ;
+    bandana:issuer "ISSUER HERE";
+    bandana:audience "AUDIENCE HERE";
+    bandana:jwkSetURL "JWKSetUrl HERE";
+    bandana:requiredClaim "roles" .
 
 
 <#access_dataset>  rdf:type access:AccessControlledDataset ;
