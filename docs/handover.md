@@ -12,6 +12,8 @@ Completion of all the items on the list below and reviewing of a pull request in
     Done by Martin at meeting Oct 20 with Dag, Johannes, and Henrik
 - [x] Introduction to JOSE / JWS authentication on fuseki http server  
     Done by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
+- [ ] Introduction to relevant parts of Apache Jena (Fuseki) code base  
+    Started by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
 - [ ] Introduction to how bandana solves policy enforcement (PEP) on a triple store
 - [ ] Dugtrio onboards `SSI` to their threat modelling if present
 - [ ] Dugtrio highlights smelly code to `SSI` if present
