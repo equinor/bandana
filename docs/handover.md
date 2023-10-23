@@ -1,16 +1,16 @@
 # Handover of Bandana
 Completion of all the items on the list below and reviewing of a pull request indicates a successful and complete handover.
 
-- [x] Overall introduction of `Bandana` has been given to `SSI`
-    Done by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
+- [x] Overall introduction of `Bandana` has been given to `SSI`  
+      Done by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
 - [ ] Admin Role of Github repo transferred to `SSI`
   - [ ] 1. `SSI` team promoted or added as Admin
   - [ ] 2. Dugtrio demoted / removed from team access list
-- [x] Transfer ownership of Snyk to `SSI`
+- [x] Transfer ownership of Snyk to `SSI`  
     No Snyk present, should be added
-- [x] Introduction to fuseki's module system including service loader
+- [x] Introduction to fuseki's module system including service loader  
     Done by Martin at meeting Oct 20 with Dag, Johannes, and Henrik
-- [x] Introduction to JOSE / JWS authentication on fuseki http server
+- [x] Introduction to JOSE / JWS authentication on fuseki http server  
     Done by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
 - [ ] Introduction to how bandana solves policy enforcement (PEP) on a triple store
 - [ ] Dugtrio onboards `SSI` to their threat modelling if present
