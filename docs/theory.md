@@ -3,19 +3,21 @@
 Given a [datastore](#datastore) $\mathbb{S}$ containing [datasets](#dataset) of type $D$ and a catalog of *terms* $I$, we say that $\mathbb{S}$ is *indexed over catalog* $I$ iff
 - each $x\mathrel{:}D ∈ \mathbb{S}$ is annotated by one or more *terms*  $t_1,\dots, t_n ∈ I$ given by a *domain map* $d_\mathbb{S}\colon D ⟶ \wp(I)$
 - *domain maps* $d_\mathbb{S}$ define an inverse *range function* $r_I\colon\wp(I)⟶D$ such that
-$$
+```math
 \begin{align}
 x \subseteq r_I &∘ d_\mathbb{S}(x) \\
 t_1,\dots,t_n \in d_\mathbb{S} &∘ r_I(\{t_1,\dots,t_n\}) \\
 \end{align}
-$$
+```
 
 ###### Range functions
 For access-control usecases we are mainly interested in 2 kinds of *range functions*:
 For a given set of *terms* $t_1,\dots,t_n ∈ A$ and a corresponding *domain map* $\overleftrightarrow{d_\mathbb{S}}$
 - an *injective* range function $\overrightarrow{r_I}$ maps to those datasets $x\in\mathbb{S}$ that are annotated with *all* terms $t∈ A$.  
   More formally:
-  $$ \overrightarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t \mathrel{∈} A \mathrel{.} t∈ \overrightarrow{d_\mathbb{S}}(x)} $$
+  ```math
+  \overrightarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t \mathrel{∈} A \mathrel{.} t∈ \overrightarrow{d_\mathbb{S}}(x)}
+  ```
   - If $\overrightarrow{d_\mathbb{S}}$ maps to terms of $I$ that are (essentially) *business topics* then $\overrightarrow{r_I}$ ranges over datasets *at the intersection* of a given set of topics, i.e. datasets that are simultaneously *about* several topics (*terms*).
   This of interest to the problem of access-control for two main reasons:
     1. Datasets are usually (and in the case of `bandana`) topically organized/annotated as a result of business requirements that precede the requirement for fine-grained access-control (such as regular business operations)
@@ -23,7 +25,9 @@ For a given set of *terms* $t_1,\dots,t_n ∈ A$ and a corresponding *domain map
 
 - a *surjective* range function $\overleftarrow{r_I}$ maps the datasets $x\in\mathbb{S}$ where *every* annotated term $t∈ d_\mathbb{S}(x)$ is in the given set of terms, $t∈ A$
   More formally:
-  $$ \overleftarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t∈ \overleftarrow{d_\mathbb{S}}(x) \mathrel{.} t \mathrel{∈} A} $$
+  ```math
+  \overleftarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t∈ \overleftarrow{d_\mathbb{S}}(x) \mathrel{.} t \mathrel{∈} A} 
+  ```
   - If $\overleftarrow{d_\mathbb{S}}$ maps to terms that correspond to *priveleged access roles* (such as "securtity clearance") then $\overleftarrow{r_I}$ ranges over datasets $x ∈ \mathbb{S}$ where a user has the required set of access priveleges (*terms*).
 
 The purpose of defining *indexed-catalogued datastores* in terms of *domain maps* (from individual datasets to collections of terms [^1]) and *range functions* (from collections of *index catalog terms* to some defined subset of all the datasets in the datastore) is to make explicit that access-control ultimately depends on making *distinctions* between collections of information (datasets), that this disctinction has to be made over *properties* of the datasets (given by $d_\mathbb{S}$), and that how we make the distinction ($r_I$) is a function of the *distinguishing properties*.
@@ -35,17 +39,17 @@ A definiton of access-control in terms of *index catalog*, *domain map* and *ran
 
 Specifically, `Bandana` takes a datastore $\mathbb{S}$ and a *set of scopes* (or *"access policy"*) $A$, each a set of business concepts/topics, and *exposes a datastore $\mathbb{S}_A$ that contains* (or "*grants access to*") the datasets *in range* of any of the *scope intersections* $s∈A$.
 More formally:
-$$ 
+```math
 \mathbb{S}_A = \bigcup_{s\in A}{\overrightarrow{r_I}(s)}
-$$
+```
 In order to extend policy semantics to support additional use-cases of restricted access within a business topic, we could extend [^RO] with some new access-role predicate and our evaluation to include the *surjective range function* thus:
-$$ 
+```math
 \mathbb{S}_A = \bigcup_{s\in A}{\overrightarrow{r_I}(s)\land\overleftarrow{r_I}(s)}
-$$
+```
 Alternatively, we can separate the access-policy into a *topical* part and a *priveleged access role* part:
-$$ 
+```math
 \mathbb{S}_{A,R} = \bigcup_{\substack{s∈ A \\ p ∈ R}}{\overrightarrow{r_I}(s)\land\overleftarrow{r_I}(p)}
-$$
+```
 
 
 
