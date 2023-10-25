@@ -15,9 +15,9 @@ For access-control usecases we are mainly interested in 2 kinds of *range functi
 For a given set of *terms* $t_1,\dots,t_n ∈ A$ and a corresponding *domain map* $\overleftrightarrow{d_\mathbb{S}}$
 - an *injective* range function $\overrightarrow{r_I}$ maps to those datasets $x\in\mathbb{S}$ that are annotated with *all* terms $t∈ A$.  
   More formally:
-  ```math
-  \overrightarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t \mathrel{∈} A \mathrel{.} t∈ \overrightarrow{d_\mathbb{S}}(x)}
-  ```
+```math
+\overrightarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t \mathrel{∈} A \mathrel{.} t∈ \overrightarrow{d_\mathbb{S}}(x)}
+```
   - If $\overrightarrow{d_\mathbb{S}}$ maps to terms of $I$ that are (essentially) *business topics* then $\overrightarrow{r_I}$ ranges over datasets *at the intersection* of a given set of topics, i.e. datasets that are simultaneously *about* several topics (*terms*).
   This of interest to the problem of access-control for two main reasons:
     1. Datasets are usually (and in the case of `bandana`) topically organized/annotated as a result of business requirements that precede the requirement for fine-grained access-control (such as regular business operations)
@@ -25,9 +25,9 @@ For a given set of *terms* $t_1,\dots,t_n ∈ A$ and a corresponding *domain map
 
 - a *surjective* range function $\overleftarrow{r_I}$ maps the datasets $x\in\mathbb{S}$ where *every* annotated term $t∈ d_\mathbb{S}(x)$ is in the given set of terms, $t∈ A$
   More formally:
-  ```math
-  \overleftarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t∈ \overleftarrow{d_\mathbb{S}}(x) \mathrel{.} t \mathrel{∈} A} 
-  ```
+```math
+\overleftarrow{r_I}(A) = \bigcup_{x\in\mathbb{S}}{∀t∈ \overleftarrow{d_\mathbb{S}}(x) \mathrel{.} t \mathrel{∈} A} 
+```
   - If $\overleftarrow{d_\mathbb{S}}$ maps to terms that correspond to *priveleged access roles* (such as "securtity clearance") then $\overleftarrow{r_I}$ ranges over datasets $x ∈ \mathbb{S}$ where a user has the required set of access priveleges (*terms*).
 
 The purpose of defining *indexed-catalogued datastores* in terms of *domain maps* (from individual datasets to collections of terms [^1]) and *range functions* (from collections of *index catalog terms* to some defined subset of all the datasets in the datastore) is to make explicit that access-control ultimately depends on making *distinctions* between collections of information (datasets), that this disctinction has to be made over *properties* of the datasets (given by $d_\mathbb{S}$), and that how we make the distinction ($r_I$) is a function of the *distinguishing properties*.
