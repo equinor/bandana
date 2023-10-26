@@ -16,6 +16,16 @@ interface AuthorizationProvider {
     var authAttrKey: String
 }
 
+class SpineAuthFiler() :
+        HttpFilter(), AuthenticationFilter, AuthorizationProvider {
+    override val authScheme = AuthScheme.BEARER
+    override var authAttrKey = DEFAULT_AUTH_ATTR_KEY
+    override fun doFilter(req: HttpServletRequest?, res: HttpServletResponse?, chain: FilterChain?) {
+        super.doFilter(req, res, chain)
+    }
+
+}
+
 class JWTBearerFilter(_claimKey: String? = null) :
         HttpFilter(), AuthenticationFilter, AuthorizationProvider {
     private final val _BEARER = "Bearer "
