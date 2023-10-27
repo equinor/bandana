@@ -6,6 +6,8 @@ Completion of all the items on the list below and reviewing of a pull request in
 - [ ] Admin Role of Github repo transferred to `SSI`
   - [ ] 1. `SSI` team promoted or added as Admin
   - [ ] 2. Dugtrio demoted / removed from team access list
+- [x] Make SSI owners of Azure App Registration and Enterprise Application
+      DHOVL and JOETE made owners on Fri, Oct 27. 2023
 - [x] Transfer ownership of Snyk to `SSI`  
     No Snyk present, should be added
 - [x] Introduction to fuseki's module system including service loader  
