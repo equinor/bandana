@@ -21,9 +21,18 @@ class SpineAuthFilter(_scopeHeaderKey: String? = null) : HttpFilter(), Authoriza
     private val scopeParamKey = _scopeHeaderKey ?: DEFAULT_SCOPE_KEY
     override var authAttrKey: String = DEFAULT_AUTH_ATTR_KEY
 
+
     override fun doFilter(req: HttpServletRequest, res: HttpServletResponse, ch: FilterChain) {
+        //Get token
+        // Get enough info form token to call spine-auth
+        // Get upn scope from token
+
         val authheader = arrayOf("scope1", "scope2")
 
+        // Add scopes to header
+        // Newline-separated string of tab-separated scope-names (tsv)
+        // First line is a tab-separated list of roles (read or write)
+        // See also RoleRegistry.get
         req.setAttribute(authAttrKey, authheader.toList().joinToString("\n"))
         ch.doFilter(req, res)
     }

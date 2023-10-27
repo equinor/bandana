@@ -10,7 +10,8 @@
 @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
 
 
-[] ja:loadClass "bandana.AssemblerRoleRegistry", "bandana.AssemblerJWTBearerFilter", "bandana.AssemblerSpineAuthProvider".
+[] ja:loadClass "bandana.AssemblerRoleRegistry"#, "bandana.AssemblerJWTBearerFilter"
+, "bandana.AssemblerSpineAuthFilter".
 
 [] rdf:type fuseki:Server ;
     #bandana:authentication <#filter> ;
@@ -49,10 +50,16 @@
     fuseki:dataset <#access_dataset> ;
     .
 
-<#filter> rdf:type bandana:JWTBearerFilter ;
-    bandana:issuer "ISSUER HERE";
-    bandana:audience "AUDIENCE HERE";
-    bandana:jwkSetURL "JWKSetUrl HERE";
+#<#filter> rdf:type bandana:JWTBearerFilter ;
+#    bandana:issuer "https://sts.windows.net/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/";
+#    bandana:audience "2e5bf60a-d982-4c30-9b87-8a69ce721d77";
+#    bandana:jwkSetURL "https://login.microsoftonline.com/common/discovery/v2.0/keys";
+#    bandana:requiredClaim "roles" .
+
+<#filter> rdf:type bandana:SpineAuthFilter ;
+    bandana:issuer "https://sts.windows.net/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/";
+    bandana:audience "2e5bf60a-d982-4c30-9b87-8a69ce721d77";
+    bandana:jwkSetURL "https://login.microsoftonline.com/common/discovery/v2.0/keys";
     bandana:requiredClaim "roles" .
 
 
