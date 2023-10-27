@@ -68,6 +68,20 @@ fun getAuth(point: Resource): HttpFilter? {
     // return Assembler.general.open(auths.nextStatement().getObject() as? Resource) as HttpFilter
 }
 
+class AssemblerSpineAuthFilter() : AssemblerBase() {
+    companion object {
+        init {
+            MappingRegistry.addPrefixMapping("bandana", ns)
+            Assembler.general.implementWith(tSpineAuthFilter, AssemblerSpineAuthFilter())
+        }
+    }
+
+    override fun open(a: Assembler, root: Resource, mode: Mode): HttpFilter {
+        val scopeHeaderKey = root.getProperty(pScopeKey)?.`object`?.asLiteral()?.getString()
+        return SpineAuthFilter(scopeHeaderKey)
+    }
+}
+
 class AssemblerJWTBearerFilter() : AssemblerBase() {
     companion object {
         init {

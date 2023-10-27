@@ -16,15 +16,19 @@ interface AuthorizationProvider {
     var authAttrKey: String
 }
 
-class SpineAuthFiler() :
-        HttpFilter(), AuthenticationFilter, AuthorizationProvider {
-    override val authScheme = AuthScheme.BEARER
-    override var authAttrKey = DEFAULT_AUTH_ATTR_KEY
-    override fun doFilter(req: HttpServletRequest?, res: HttpServletResponse?, chain: FilterChain?) {
-        super.doFilter(req, res, chain)
-    }
+class SpineAuthFilter(_scopeHeaderKey: String? = null) : HttpFilter(), AuthorizationProvider {
 
+    private val scopeParamKey = _scopeHeaderKey ?: DEFAULT_SCOPE_KEY
+    override var authAttrKey: String = DEFAULT_AUTH_ATTR_KEY
+
+    override fun doFilter(req: HttpServletRequest, res: HttpServletResponse, ch: FilterChain) {
+        val authheader = arrayOf("scope1", "scope2")
+
+        req.setAttribute(authAttrKey, authheader.toList().joinToString("\n"))
+        ch.doFilter(req, res)
+    }
 }
+
 
 class JWTBearerFilter(_claimKey: String? = null) :
         HttpFilter(), AuthenticationFilter, AuthorizationProvider {
