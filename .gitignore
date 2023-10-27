@@ -6,3 +6,4 @@ tdb2
 bandanaModule/src/test/resources/test.token
 *.jar
 
+/test-server/config/bandana_config_local.ttl
