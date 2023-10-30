@@ -1,34 +1,30 @@
-\documentclass[varwidth]{standalone}
-% \usepackage{amsmath}
-% \usepackage{stix}
-% \usepackage{tikz-cd}
-% \usepackage{array}
+\documentclass[tikz, margin=3mm]{standalone}
+
 \usepackage{tikz}
 \usepackage{stix}
 \usepackage{ifthen}
 \usepackage{amsmath}
 \usepackage{verbatimbox}
-\usepackage[outline]{contour}
-% \newcommand\rep{\scriptscriptstyle{\textit{Rep}^M}}
-% \newcommand\instate{\in}
-% \newcommand\mchange{\phi}
-%\fontsize{24pt}{12}\selectfont
+\usepackage{pagecolor}
+
 \usetikzlibrary{matrix, positioning, calc, fit, shapes.geometric}
 \newcommand\fcolor{blue}
-\newcommand\bcolor{brown}
+\newcommand\bcolor{red}
 \newcommand\ft[1]{\textcolor{\fcolor}{#1}}
 \newcommand\bt[1]{\textcolor{\bcolor}{#1}}
 \begin{document}
 
-% \def\verbatim@font{\tiny}%
+\pagecolor{white}
 
 \begin{myverbbox}[\tiny]{\sSPARQL}
-CONSTRUCT { ?s ?p ?o . 
-            ?a ?b ?c . }
-WHERE { { ?s :disc 1 ;
-             ?p ?o .   }
-  UNION { ?a :part ?s ;
-          ?b ?c .      } }
+CONSTRUCT {
+  ?s ?p ?o . 
+  ?a ?b ?c . 
+} WHERE {  
+   { ?s :disc 1 ; ?p ?o . }
+   UNION 
+   { ?a :part ?s ; ?b ?c . } 
+}
 \end{myverbbox}
 \begin{myverbbox}[\tiny]{\sPOLICY}
 [ [ "http://ex.com/asset/1",
@@ -37,27 +33,24 @@ WHERE { { ?s :disc 1 ;
     "http://contractor.no/ex" ] ]
 \end{myverbbox}
 \begin{tikzpicture}[
-    %label/.style={font=\small, midway}, 
     fu/.style={\fcolor},
     vertex/.style={minimum size=2pt,fill,draw,circle},
     open/.style={name=#1,fill=none, draw, circle},
-    %every fit/.style={ellipse,draw,inner sep=-2pt},
     leaf/.style={font=\scriptsize\tt,  inner sep=0.05cm,rectangle, anchor = west},
     ast/.style={font=\small\it,  inner sep=0.03cm,rectangle, rotate=45},
-    %inner/.style={name=#1, font=\small\it},
     auto,
-    list/.style={matrix of nodes,font=\scriptsize\tt, nodes={rectangle, draw, inner sep=1.3}, inner sep=0.4cm, row sep=0.58cm, column sep=0.2cm, ampersand replacement=\&},
+    list/.style={matrix of nodes, scale=2.0, font=\tt, nodes={rectangle, draw, inner sep=1.3}, inner sep=0.4cm, row sep=0.58cm, column sep=0.2cm, ampersand replacement=\&},
     typetag/.style={draw=gray, inner sep=1ex, anchor=west}]
 
-\node (r) at (0,0) {\contour{white}{$R = (\ft{Q}, \bt{S})$}} [sibling distance=4.0cm, level distance=2cm]
+\node (r) at (0,0) {$R = (\ft{Q}, \bt{S})$} [sibling distance=4.0cm, level distance=2cm]
     child { 
         node [rectangle, fill=white] (q) {\sSPARQL}  [sibling distance=2.7cm, level distance=2.5cm] 
          child {
-            node (LEFT) [ast]{\contour{white}{cons}} [sibling distance=0.7cm,level distance=.7cm]
+            node (LEFT) [ast]{cons} [sibling distance=0.7cm,level distance=.7cm]
             child [grow' = east] {
-                node (P) [ast] {\contour{white}{pattern}} 
-                child {node [leaf] (TOP)  {\contour{white}{?s ?p ?o}}}
-                child {node [leaf] {\contour{white}{?a ?b ?c}}}
+                node (P) [ast] {pattern} 
+                child {node [leaf] (TOP)  {?s ?p ?o}}
+                child {node [leaf] {?a ?b ?c}}
             }
             child [grow' = south, yshift=-1.4cm] {
                 node [ast] {union}  [grow' = east, sibling distance=1.4cm]
@@ -72,18 +65,18 @@ WHERE { { ?s :disc 1 ;
             }
             edge from parent [draw=none,black]
         }
-        child { 
+        child {
             node (e) [fit=(LEFT) (TOP) (T3) (T4), rectangle, draw, \fcolor] {}
             node (i) at (-2, -3.5) [fit=(T1) (T3) (T4), rectangle,draw, dashed, inner sep=0.3] {} 
             edge from parent [-to] node[label={[align=left, right, \fcolor, font=\tiny]parse and\\create query\\execution}] {}
-        }    
+        }
         edge from parent [-to] node [font=\ft,  near end, above] {$\pi_Q$}
     }
     child { 
         node (s) {\sPOLICY} [level distance=4.5cm, sibling distance=2.2cm, grow'=south]
         child [] {
             %node (db) [rectangle, draw] {DATABASE}
-            node[list,draw, label={\contour{white}{Indexed Store}}, \fcolor,fill=white] (db) {
+            node[list,draw, label={Indexed Store}, \fcolor,fill=white] (db) {
             GSPO \& SPOG \\
             GPOS \& POSG \\
             GOSP \& OSPG \\}
@@ -102,6 +95,6 @@ WHERE { { ?s :disc 1 ;
             edge from parent [-to,\bcolor] node[label={[align=left, right, \bcolor, font=\tiny]parse and\\create triple/\\quad filter}] {}
         }
         edge from parent [-to] node [\bcolor, midway, above] {$\pi_S$} 
-};
+    };
 \end{tikzpicture}
 \end{document}

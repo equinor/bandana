@@ -14,17 +14,17 @@ Triplestores all use established datastructures (or datastructures with establis
 <table><tr>
 <td>
 
-`S`&nbsp;↔&nbsp;`subject`
-`P`&nbsp;↔&nbsp;`predicate`
-`O`&nbsp;↔&nbsp;`object`
-`G`&nbsp;↔&nbsp;`graph`
+`S`&nbsp;↔&nbsp;`subject`  
+`P`&nbsp;↔&nbsp;`predicate`  
+`O`&nbsp;↔&nbsp;`object`  
+`G`&nbsp;↔&nbsp;`graph`  
 
 </td>
 <td>
 
-`GSPO`&nbsp;`SPOG`
-`GPOS`&nbsp;`POSG`
-`GOSP`&nbsp;`OSPG`
+`GSPO`&nbsp;`SPOG`  
+`GPOS`&nbsp;`POSG`  
+`GOSP`&nbsp;`OSPG`  
 
 </td>
 <td>
@@ -59,20 +59,28 @@ An alternative approach of *query rewriting* was considered, as this would allow
     - Accept security leaks for queries of this type (lol)
   - While it might seem like a rare corner case, we rely heavily on this combination of features to properly query against composite datasets in the *Record Ontology*[^RO]
 - Performance-wise this method will require that every visited named-graph be checked for access *in the query itself*, which has performance implications: 
-  - no control of caching (the same `Named Graph` may be checed for access multiple times during a query evaluation)
+  - no control of caching (the same `Named Graph` may be checked for access multiple times during a query evaluation)
   - necessarily increased query complexity (all the access checks have to be added, nothing is removed)
     - while the added access checks in theory only increase the search space for query evaluation by a constant factor of about 2, injecting these patterns inside or after every `GRAPH` statement is likely to affect various query optimization strategies (i.e. query plans) implemented by the triplestore server.
 
-#### A Diagram
-
-<div style="background:white;">
+### A Diagram
 
 ![Very drawing!](scope_access_evaluation.svg)
 
-</div>
+>Schematic overview of `Bandana` implementation strategy. In blue (left column + $\text{Indexed Store}$) is unchanged `Fuseki/Jena` triplestore request handling of a query $Q$.  
+>In red is `Bandana` extension behavior:
+> 1. Extract *access policy* $S$ securely from request $R$ using some $\pi_S$
+> 2. Parse $S$ and construct *policy evaluation* `filter` acting on *index lookups*
+> 3. Intercept *query evaluation* at the appropriate point to apply `filter` to individual *index lookups* before results are folded into *query evaluation*.
 
-### Authentication
-PoC a minimal cryptographic authentication of requests using JWT/JWS
+
+### Authentication ⟶ Authorization
+PoC a minimal cryptographic authentication of requests using JWT/JWS:
+1. Verify JWT encryption/signature for requests at HTTP level
+2. Extract *scope* claims from decrypted/valid JWT in HTTP middleware (`HttpServletFilter` in java-speak)
+3. Pass scope claims along to the *query evaluator* (`ActionProcessor` in `Fuseki`-speak)
+4. Configure `Fuseki` to evaluate query over filtered `dataset`
+
 
 ### Technology choices
 - Use `Fuseki` triplestore
