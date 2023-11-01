@@ -12,11 +12,8 @@ import org.apache.jena.query.Query
 import org.apache.jena.query.QueryExecution
 import org.apache.jena.query.QueryExecutionFactory
 import org.apache.jena.sparql.ARQConstants
-import org.apache.jena.sparql.core.DatasetGraph
-import org.apache.jena.sparql.core.DatasetGraphMapLink
-import org.apache.jena.sparql.core.DatasetGraphWrapper
+import org.apache.jena.sparql.core.*
 import org.apache.jena.sparql.core.DynamicDatasets.DynamicDatasetGraph
-import org.apache.jena.sparql.core.Quad
 import org.apache.jena.sparql.graph.GraphOps
 import org.apache.jena.sparql.graph.GraphUnionRead
 import org.apache.jena.tdb2.DatabaseMgr
@@ -24,43 +21,6 @@ import org.apache.jena.tdb2.store.DatasetGraphSwitchable
 import org.apache.jena.tdb2.sys.SystemTDB
 import java.util.function.Predicate
 
-
-fun dynamicDataset(defaultGraphs: Collection<Node?>, namedGraphs: Collection<Node?>, dsg: DatasetGraph): DatasetGraph {
-    /**
-     * Modified from {jena-arq/src/main/java/org/apache/jena/sparql/core/DynamicDatasets.java}
-     * please refer to {apache-jena/dist/LICENSE} [Apache 2.0] for copyright/redistribution terms.
-     */
-    val dft: Graph
-    if (defaultGraphs.contains(Quad.unionGraph)) {
-        val baseUnion = dsg.unionGraph
-        if (defaultGraphs.contains(Quad.defaultGraphIRI))
-            dft = Union(baseUnion, dsg.defaultGraph)
-        else  // Any other FROM graphs don't matter - they are in the union graph.
-            dft = baseUnion
-    } else dft = GraphUnionRead(dsg, defaultGraphs)
-    var dsg2: DatasetGraph = DatasetGraphMapLink(dft)
-
-    // The named graphs.
-    for (gn in namedGraphs) {
-        if (Quad.isUnionGraph(gn)) {
-            // Special case - don't put an explicitly named union graph into the name
-            // graphs because union is an operation over all named graphs ... which
-            // includes itself.
-            // In practical terms, it can lead to stack overflow in execution.
-            continue
-        }
-        val g: Graph? = GraphOps.getGraph(dsg, gn)
-        if (g != null) dsg2.addGraph(gn, g)
-    }
-    if (dsg.context != null) dsg2.context.putAll(dsg.context)
-    dsg2 = DynamicDatasetGraph(dsg2, dsg)
-
-    // Record what we've done.
-    // c.f. "ARQConstants.sysDatasetDescription" which is used to pass in a DatasetDescription
-    dsg2.getContext()[ARQConstants.symDatasetDefaultGraphs] = defaultGraphs
-    dsg2.getContext()[ARQConstants.symDatasetNamedGraphs] = namedGraphs
-    return dsg2
-}
 
 class ScopedSecurityContext(scopes: ScopeAccess, dsg: DatasetGraph) : SecurityContext {
     private val scopes = scopes
@@ -76,7 +36,7 @@ class ScopedSecurityContext(scopes: ScopeAccess, dsg: DatasetGraph) : SecurityCo
         var tdb = dsg.isWrappedTDB2()
 
         if (dsg is DynamicDatasetGraph) {
-            dsgA = dynamicDataset(dsg.originalDefaultGraphs, dsg.originalNamedGraphs, FilteredUnionDataset(dsg.unwrap(), scopeFilter))
+            dsgA = DynamicDatasets.dynamicDataset(dsg.originalDefaultGraphs, dsg.originalNamedGraphs, FilteredUnionDataset(dsg.unwrap(), scopeFilter), false)
         }
         else if (!tdb) dsgA = DataAccessCtl.filteredDataset(dsg, this)
         else dsgA = dsg
