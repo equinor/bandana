@@ -8,3 +8,5 @@ curl -d "query=SELECT * WHERE {?a ?b ?c} LIMIT 10"
 
 
 curl -d "SELECT * WHERE {?a ?b ?c} LIMIT 10" localhost:8080/ds/query
+
+jq -R 'split(".") | .[0],.[1] | @base64d | fromjson' <<< $token
