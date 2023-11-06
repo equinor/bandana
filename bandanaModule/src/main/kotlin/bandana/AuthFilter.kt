@@ -29,6 +29,9 @@ class SpineAuthFilter(_scopeHeaderKey: String? = null) : HttpFilter(), Authoriza
 
         val authheader = arrayOf("scope1", "scope2")
 
+        val autheader = req.getHeader("Authorization")
+        // Send auth-header to spine-auth?
+
         // Add scopes to header
         // Newline-separated string of tab-separated scope-names (tsv)
         // First line is a tab-separated list of roles (read or write)

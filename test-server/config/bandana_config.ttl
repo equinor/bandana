@@ -51,16 +51,10 @@
     .
 
 #<#filter> rdf:type bandana:JWTBearerFilter ;
-#    bandana:issuer "https://sts.windows.net/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/";
-#    bandana:audience "2e5bf60a-d982-4c30-9b87-8a69ce721d77";
-#    bandana:jwkSetURL "https://login.microsoftonline.com/common/discovery/v2.0/keys";
+#    bandana:issuer "ISSUER HERE";
+#    bandana:audience "AUDIENCE HERE";
+#    bandana:jwkSetURL "JWKSetUrl HERE";
 #    bandana:requiredClaim "roles" .
-
-<#filter> rdf:type bandana:SpineAuthFilter ;
-    bandana:issuer "https://sts.windows.net/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/";
-    bandana:audience "2e5bf60a-d982-4c30-9b87-8a69ce721d77";
-    bandana:jwkSetURL "https://login.microsoftonline.com/common/discovery/v2.0/keys";
-    bandana:requiredClaim "roles" .
 
 
 <#access_dataset>  rdf:type access:AccessControlledDataset ;
