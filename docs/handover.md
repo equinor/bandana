@@ -18,7 +18,8 @@ Completion of all the items on the list below and reviewing of a pull request in
     Done Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
 - [x] Introduction to how bandana solves policy enforcement (PEP) on a triple store  
     Done Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
-- [ ] Dugtrio onboards `SSI` to their threat modelling if present
+- [x] Dugtrio onboards `SSI` to their threat modelling if present
+    No threat modelling done for Bandana, but we want to do a proper threat modelling in splinter that includes Bandana. A short intro to dugtrios threat modelling was given on meeting with Johannes and Markus 7. November 2023 
 - [x] Dugtrio highlights smelly code to `SSI` if present
     In Fuseki's roleregistry the only parameter we have access to in order to get a SecurityContext is a string. We therefore include all roles as a newline separated string in this parameter. This should have been a less stringly typed datastructure. 
 - [x] Dugtrio highlights their vision for further work to `SSI`
