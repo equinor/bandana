@@ -36,8 +36,10 @@ class SpineAuthFilter(_scopeHeaderKey: String? = null) : HttpFilter(), Authoriza
         // Newline-separated string of tab-separated scope-names (tsv)
         // First line is a tab-separated list of roles (read or write)
         // See also RoleRegistry.get
-        req.setAttribute(authAttrKey, authheader.toList().joinToString("\n"))
-        ch.doFilter(req, res)
+        res.writer.write("Hello")
+        res.writer.flush()
+        // req.setAttribute(authAttrKey, authheader.toList().joinToString("\n"))
+        // ch.doFilter(req, res)
     }
 }
 
