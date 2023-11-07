@@ -3,9 +3,9 @@ Completion of all the items on the list below and reviewing of a pull request in
 
 - [x] Overall introduction of `Bandana` has been given to `SSI`  
       Done by Eirik at meeting Oct 20 with Dag, Johannes, and Henrik
-- [ ] Admin Role of Github repo transferred to `SSI`
+- [x] Admin Role of Github repo transferred to `SSI`
   - [x] 1. `SSI` team promoted or added as Admin
-  - [ ] 2. Dugtrio demoted / removed from team access list
+  - [x] 2. Dugtrio demoted / removed from team access list
 - [x] Make SSI owners of Azure App Registration and Enterprise Application
       DHOVL and JOETE made owners on Fri, Oct 27. 2023
 - [x] Transfer ownership of Snyk to `SSI`  
