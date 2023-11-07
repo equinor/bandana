@@ -25,5 +25,5 @@ Completion of all the items on the list below and reviewing of a pull request in
     Make a frontend team use bandana. This envolve communcation with frontteam and their needs + communcation with a authorization provider, for example Spine Auth, Fusion's AD-tree solutions or AccessIt. It is important to note that Bandana solve a different problem than the 3 authorization providers and it is made to work together with such a provider.
 - [x] At least one contribution to the repository has been made by a member of the `SSI` team.
       Changes has been made here https://github.com/equinor/bandana/pull/5 . They are not merged, but sufficient to check this box
-- [ ] At least one resource on the `SSI` has released a new version of `Bandana` and used it in spine splinter's dev environment using git submodule
-
+- [x] At least one resource on the `SSI` has released a new version of `Bandana` and used it in spine splinter's dev environment using git submodule
+      Johannes and Markus deployed some test code to splinters dev environment on meating 7. November 2023
