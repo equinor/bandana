@@ -10,7 +10,8 @@
 @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
 
 
-[] ja:loadClass "bandana.AssemblerRoleRegistry", "bandana.AssemblerJWTBearerFilter" .
+[] ja:loadClass "bandana.AssemblerRoleRegistry", "bandana.AssemblerJWTBearerFilter"
+, "bandana.AssemblerSpineAuthFilter".
 
 [] rdf:type fuseki:Server ;
     #bandana:authentication <#filter> ;
@@ -49,12 +50,13 @@
     fuseki:dataset <#access_dataset> ;
     .
 
-<#filter> rdf:type bandana:JWTBearerFilter ;
-    bandana:issuer "ISSUER HERE";
-    bandana:audience "AUDIENCE HERE";
-    bandana:jwkSetURL "JWKSetUrl HERE";
-    bandana:requiredClaim "roles" .
+#<#filter> rdf:type bandana:JWTBearerFilter ;
+#    bandana:issuer "ISSUER HERE";
+#    bandana:audience "AUDIENCE HERE";
+#    bandana:jwkSetURL "JWKSetUrl HERE";
+#    bandana:requiredClaim "roles" .
 
+<#filter> rdf:type bandana:SpineAuthFilter .
 
 <#access_dataset>  rdf:type access:AccessControlledDataset ;
     access:registry   <#roleRegistry> ;

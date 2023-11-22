@@ -15,6 +15,9 @@ val pAuthentication = ResourceFactory.createProperty(ns + "authentication") ?: t
 // JWT/JWS auth implementation type
 val tJWTBearerFilter = ResourceFactory.createResource(ns + "JWTBearerFilter") ?: throw NullPointerException()
 
+// Spine auth
+val tSpineAuthFilter = ResourceFactory.createResource(ns + "SpineAuthFilter") ?: throw NullPointerException()
+
 // JWS validation parameters
 val pAudience = ResourceFactory.createProperty(ns + "audience") ?: throw NullPointerException()
 val pIssuer = ResourceFactory.createProperty(ns + "issuer") ?: throw NullPointerException()
