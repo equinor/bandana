@@ -1,5 +1,5 @@
 # Archived
-Bandana is no longer in use and has therefore been archived.
+Bandana is no longer in use and has therefore been archived. Bandana will be replaced by Bifrost.
 
 # Bandana
 *Access control for index-catalogued datasets*
