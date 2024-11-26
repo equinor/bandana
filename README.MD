@@ -1,3 +1,6 @@
+# Archived
+Bandana is no longer in use and has therefore been archived.
+
 # Bandana
 *Access control for index-catalogued datasets*
 
